@@ -1,0 +1,15 @@
+{
+    "name": "mockneto-monorepo",
+    "version": "1.0.0",
+    "description": "Mockneto: AI-Powered Interview Preparation Platform",
+    "scripts": {
+        "install:all": "npm install && cd Backend && npm install && cd ../ai-based-project && npm install",
+        "dev:backend": "cd Backend && npm run dev",
+        "dev:frontend": "cd ai-based-project && npm run dev",
+        "dev": "npx concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+        "start": "cd Backend && npm start"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}

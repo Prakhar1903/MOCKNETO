@@ -1,0 +1,64 @@
+@custom-variant dark (&:where(.dark, .dark *));
+@import "tailwindcss";
+
+:root {
+  --radial-bg: radial-gradient(
+    ellipse at center,
+    rgba(99, 102, 241, 0.10) 0%,
+    rgba(236, 72, 153, 0.06) 40%,
+    rgba(15, 23, 42, 0.02) 100%
+  );
+}
+
+.dark {
+  --radial-bg: radial-gradient(
+    ellipse at center,
+    rgba(123, 97, 255, 0.18) 0%,
+    rgba(17, 11, 35, 0.85) 60%,
+    rgba(10, 6, 27, 1) 100%
+  );
+}
+
+.radial-background {
+  background: var(--radial-bg);
+}
+/* body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgb(44, 27, 78) 0%,
+    #110b23 60%,
+    #0a061b 100%
+  );
+  color: white;
+  font-family: 'Montserrat', sans-serif;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto; 
+  padding-top: 70px;
+} */
+.card-scroll-container {
+  display: flex; /* Lines up cards in a row */
+  overflow-x: auto; /* Enables horizontal scrolling */
+  gap: 1.5rem; /* Space between cards */
+  padding: 1rem 0.5rem; /* Adds some vertical padding */
+
+  /* This makes scrolling smooth on touch devices */
+  -webkit-overflow-scrolling: touch;
+  
+  /* Hides the scrollbar for a cleaner look (optional) */
+  scrollbar-width: none; /* For Firefox */
+}
+
+/* For Chrome, Safari, and Opera */
+.card-scroll-container::-webkit-scrollbar {
+  display: none; 
+}
+
+/* Styles for the individual cards inside the scroll container */
+.card-item {
+  flex: 0 0 280px; /* Prevents cards from shrinking and sets a fixed width */
+  height: auto; /* Let the card's content determine its height */
+}
