@@ -23,12 +23,12 @@ const HowItWorks = () => {
   return (
     <section className="how-it-works">
       <div className="section-header">
-        <h2 className="section-title">From zero to <span className="text-gradient">autonomous</span></h2>
+        <h2 className="section-title typography-display">From zero to <span className="text-gradient">autonomous</span></h2>
       </div>
 
       <div className="steps-container">
         {steps.map((step, i) => (
-          <div key={i} className="step-card">
+          <div key={i} className="step-card glass-container">
             <div className="step-number text-gradient">{step.num}</div>
             <h3 className="step-title">{step.title}</h3>
             <p className="step-desc">{step.desc}</p>

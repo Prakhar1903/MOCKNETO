@@ -14,8 +14,8 @@ const Login = () => {
       </div>
       
       <div className="auth-right">
-        <div className="auth-form-wrapper glass">
-          <h2 className="auth-title">Sign In</h2>
+        <div className="auth-form-wrapper glass-container">
+          <h2 className="auth-title typography-display">Sign In</h2>
           <p className="auth-subtitle">Continue to your dashboard</p>
           
           <div className="auth-oauth">

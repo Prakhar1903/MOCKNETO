@@ -8,8 +8,8 @@ const Signup = () => {
       {/* Reverse layout: Form on left, Brand on right */}
       
       <div className="auth-right">
-        <div className="auth-form-wrapper glass">
-          <h2 className="auth-title">Create Account</h2>
+        <div className="auth-form-wrapper glass-container">
+          <h2 className="auth-title typography-display">Create Account</h2>
           <p className="auth-subtitle">Start building your AI agent fleet today</p>
           
           <div className="auth-oauth">

@@ -2,16 +2,23 @@
 
 :root {
   /* Colors */
-  --bg-dark: #0A0A0F;
-  --bg-surface: rgba(255, 255, 255, 0.04);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --text-primary: #FFFFFF;
-  --text-secondary: #9CA3AF;
+  --bg-base: #080810;
+  --bg-surface-low: #13121C;
+  --bg-surface-high: #1F1F2A;
+  --bg-surface-glass: rgba(37, 37, 49, 0.4);
+  --border-ghost: rgba(72, 71, 81, 0.2);
+  --text-primary: #E7E4F0;
+  --text-secondary: #ACAAB5;
+  
+  --color-primary: #7C3AED;
+  --color-primary-dim: #8A4CFC;
+  --color-secondary: #3B82F6;
+  --color-tertiary: #EC4899;
   
   /* Gradients */
-  --brand-gradient: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 50%, #EC4899 100%);
-  --brand-gradient-hover: linear-gradient(135deg, #60A5FA 0%, #A78BFA 50%, #F472B6 100%);
-  --glow-gradient: radial-gradient(circle at center, rgba(139, 92, 246, 0.3) 0%, transparent 70%);
+  --brand-gradient: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  --glow-orb: radial-gradient(circle at center, rgba(124, 58, 237, 0.4) 0%, transparent 70%);
+  --glow-orb-alt: radial-gradient(circle at center, rgba(236, 72, 153, 0.4) 0%, transparent 70%);
 
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -19,11 +26,13 @@
   /* Spacing */
   --radius-sm: 8px;
   --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
   --radius-full: 9999px;
 
   /* Shadows */
-  --shadow-glow: 0 0 40px rgba(139, 92, 246, 0.15);
-  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-ambient: 0 24px 48px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.15);
 }
 
 * {
@@ -34,7 +43,7 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--bg-dark);
+  background-color: var(--bg-base);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -52,20 +61,28 @@ button {
   cursor: pointer;
   border: none;
   background: none;
+  transition: all 0.3s ease;
 }
 
-/* Base Glass Effect */
-.glass {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+/* Glassmorphism Classes */
+.glass-container {
+  background: var(--bg-surface-glass);
+  border: 1px solid var(--border-ghost);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius-xl);
 }
 
-/* Typography Utility */
+.typography-display {
+  letter-spacing: -0.02em;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
 .text-gradient {
   background: var(--brand-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+

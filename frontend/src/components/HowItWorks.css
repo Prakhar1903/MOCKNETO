@@ -1,37 +1,35 @@
 .how-it-works {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 80px 24px;
+  padding: 120px 24px;
 }
 
 .steps-container {
   display: flex;
   justify-content: space-between;
   position: relative;
-  gap: 40px;
-  margin-top: 64px;
+  gap: 48px;
+  margin-top: 80px;
 }
 
 .step-card {
   flex: 1;
   position: relative;
-  padding: 24px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 40px 32px;
 }
 
 .step-number {
-  font-size: 3rem;
+  font-size: 3.5rem;
   font-weight: 800;
-  margin-bottom: 16px;
-  opacity: 0.8;
+  margin-bottom: 24px;
+  letter-spacing: -0.04em;
 }
 
 .step-title {
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
   margin-bottom: 12px;
+  letter-spacing: -0.02em;
 }
 
 .step-desc {
@@ -42,10 +40,10 @@
 .step-connector {
   position: absolute;
   top: 50%;
-  right: -40px;
-  width: 40px;
+  right: -48px;
+  width: 48px;
   height: 2px;
-  background: var(--border-subtle);
+  background: var(--border-ghost);
   transform: translateY(-50%);
   z-index: -1;
 }
@@ -53,13 +51,9 @@
 @media (max-width: 768px) {
   .steps-container {
     flex-direction: column;
+    gap: 64px;
   }
   .step-connector {
-    top: auto;
-    bottom: -40px;
-    right: auto;
-    left: 40px;
-    width: 2px;
-    height: 40px;
+    display: none;
   }
 }

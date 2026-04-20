@@ -34,7 +34,7 @@ const HeroSection = () => {
       </div>
       
       <div className="hero-content">
-        <h1 className="hero-title">
+        <h1 className="hero-title typography-display">
           Command Your <br />
           <span className="text-gradient">AI Agent Fleet</span>
         </h1>
@@ -49,7 +49,7 @@ const HeroSection = () => {
 
         <div className="hero-visual-wrapper">
           <div 
-            className="hero-dashboard-card glass"
+            className="hero-dashboard-card glass-container"
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
             style={{
