@@ -1,0 +1,65 @@
+.how-it-works {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 80px 24px;
+}
+
+.steps-container {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  gap: 40px;
+  margin-top: 64px;
+}
+
+.step-card {
+  flex: 1;
+  position: relative;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.step-number {
+  font-size: 3rem;
+  font-weight: 800;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.step-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.step-desc {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.step-connector {
+  position: absolute;
+  top: 50%;
+  right: -40px;
+  width: 40px;
+  height: 2px;
+  background: var(--border-subtle);
+  transform: translateY(-50%);
+  z-index: -1;
+}
+
+@media (max-width: 768px) {
+  .steps-container {
+    flex-direction: column;
+  }
+  .step-connector {
+    top: auto;
+    bottom: -40px;
+    right: auto;
+    left: 40px;
+    width: 2px;
+    height: 40px;
+  }
+}
