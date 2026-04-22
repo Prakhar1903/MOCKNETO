@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import './HowItWorks.css';
 
 const HowItWorks = () => {
+  const sectionRef = useRef(null);
+
   const steps = [
     {
       num: "01",
@@ -20,15 +22,44 @@ const HowItWorks = () => {
     }
   ];
 
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const header = section.querySelector('.section-header');
+    const stepCards = section.querySelectorAll('.step-card');
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('reveal-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+
+    if (header) observer.observe(header);
+    stepCards.forEach((card) => observer.observe(card));
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="how-it-works">
-      <div className="section-header">
+    <section className="how-it-works" ref={sectionRef}>
+      <div className="section-header reveal-item">
         <h2 className="section-title typography-display">From zero to <span className="text-gradient">autonomous</span></h2>
       </div>
 
       <div className="steps-container">
         {steps.map((step, i) => (
-          <div key={i} className="step-card glass-container">
+          <div
+            key={i}
+            className="step-card glass-container reveal-item reveal-slide-left"
+            style={{ transitionDelay: `${i * 0.2}s` }}
+          >
             <div className="step-number text-gradient">{step.num}</div>
             <h3 className="step-title">{step.title}</h3>
             <p className="step-desc">{step.desc}</p>
