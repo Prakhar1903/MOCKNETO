@@ -69,7 +69,7 @@ export default function Signup() {
 
           <div className="auth-main-content">
             <div className="auth-header">
-              <h1 style={{ color: '#fff' }}>Create Account</h1>
+              <h1 style={{ color: '#fff' }}>Sign Up</h1>
               <p>Deploy and manage your AI agent fleet globally.</p>
             </div>
 
@@ -177,7 +177,7 @@ export default function Signup() {
                       <span>Initializing...</span>
                     </>
                   ) : (
-                    <span>Deploy Fleet (Sign Up)</span>
+                    <span>Sign Up</span>
                   )}
                 </button>
 

@@ -53,7 +53,7 @@ export default function Login() {
 
           <div className="auth-main-content">
             <div className="auth-header">
-              <h1 style={{ color: '#fff' }}>Portal Access</h1>
+              <h1 style={{ color: '#fff' }}>Sign In</h1>
               <p>Enter your credentials to manage your AI fleet.</p>
             </div>
 
@@ -116,7 +116,7 @@ export default function Login() {
                       <span>Authenticating...</span>
                     </>
                   ) : (
-                    <span>Establish Access (Sign In)</span>
+                    <span>Sign In</span>
                   )}
                 </button>
 
