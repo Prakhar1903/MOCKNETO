@@ -1,0 +1,66 @@
+.navbar-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 24px;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.navbar {
+  pointer-events: auto;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 64px;
+  /* Reset glass-container border-radius since we want a pill shape for navbar */
+  border-radius: var(--radius-full);
+}
+
+.navbar-container {
+  height: 100%;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-logo {
+  font-weight: 800;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.nav-link {
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+  text-shadow: var(--shadow-glow);
+}
+
+.btn-primary {
+  background: var(--brand-gradient);
+  color: #000;
+  padding: 10px 24px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+}
+
+.btn-primary:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(124, 58, 237, 0.6);
+}
