@@ -1,0 +1,42 @@
+.trust-bar {
+  padding: 64px 0;
+  margin: 40px 0;
+}
+
+.trust-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.trust-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.stat-number {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+@media (max-width: 768px) {
+  .trust-container {
+    flex-direction: column;
+    gap: 64px;
+  }
+}
