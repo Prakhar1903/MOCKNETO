@@ -1,4 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { AnimatePresence, motion } from "framer-motion";
+// useEffect, useRef, useState } from "react";
 import {
   getMbaFocusAreas,
   getMbaJobRoleSuggestions,
@@ -60,6 +66,7 @@ const VoiceInterview = () => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
+        credentials: "include",
       });
     } catch {
       // ignore
@@ -541,6 +548,7 @@ const VoiceInterview = () => {
           question: q,
           answer: a,
         }),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -696,6 +704,11 @@ const VoiceInterview = () => {
       setPermissionError(err?.message || "Microphone permission denied or unavailable.");
       stopMic();
     }
+  };
+
+  const toggleMic = () => {
+    if (isMicOn) stopMic();
+    else void startMic();
   };
 
   useEffect(() => {
@@ -922,6 +935,7 @@ const VoiceInterview = () => {
           mbaSpecialization: interviewDetails.mbaSpecialization,
           ...(useBank ? {} : { count: 5 }),
         }),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -1030,6 +1044,7 @@ const VoiceInterview = () => {
           questions: questions.map(getQuestionText),
           answers,
         }),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -1066,602 +1081,425 @@ const VoiceInterview = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-var(--header-height))] bg-transparent text-slate-900 dark:bg-gray-900 dark:text-gray-100 p-4 md:p-6 radial-background">
-      <div className="max-w-4xl mx-auto">
-        {interviewStage === "setup" && (
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <h1 className="text-2xl font-bold mb-6 text-center">Voice Interview</h1>
-
-            <div className="grid gap-4 mb-6">
-              <div>
-                <label className="block mb-2 text-gray-300">Company (optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Google, Amazon"
-                  value={interviewDetails.company}
-                  onChange={(e) => handleDetailChange("company", e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 text-gray-300">Job Role</label>
-                <input
-                  type="text"
-                  placeholder={
-                    interviewDetails.track === "mba"
-                      ? "e.g. Management Trainee"
-                      : "e.g. Frontend Developer"
-                  }
-                  value={interviewDetails.jobRole}
-                  onChange={(e) => handleDetailChange("jobRole", e.target.value)}
-                  list={interviewDetails.track === "mba" ? "mba-job-roles-voice" : undefined}
-                  className="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                {interviewDetails.track === "mba" && (
-                  <datalist id="mba-job-roles-voice">
-                    {getMbaJobRoleSuggestions(interviewDetails.mbaSpecialization).map((r) => (
-                      <option key={r} value={r} />
-                    ))}
-                  </datalist>
-                )}
-              </div>
-
-              <div>
-                <label className="block mb-2 text-gray-300">Experience Level</label>
-                <select
-                  value={interviewDetails.level}
-                  onChange={(e) => handleDetailChange("level", e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="entry">Entry Level</option>
-                  <option value="mid">Mid Level</option>
-                  <option value="senior">Senior Level</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block mb-2 text-gray-300">Candidate Type</label>
-                <select
-                  value={interviewDetails.track}
-                  onChange={(e) => handleDetailChange("track", e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="tech">Tech / Software</option>
-                  <option value="mba">MBA</option>
-                </select>
-              </div>
-
-              {interviewDetails.track === "mba" && (
-                <div>
-                  <label className="block mb-2 text-gray-300">MBA Specialization</label>
-                  <select
-                    value={interviewDetails.mbaSpecialization}
-                    onChange={(e) => handleDetailChange("mbaSpecialization", e.target.value)}
-                    className="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                  >
-                    {MBA_SPECIALIZATIONS.map((s) => (
-                      <option key={s.key} value={s.key}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-2 text-sm text-gray-300">
-                    {getMbaSpecialization(interviewDetails.mbaSpecialization)?.interviewLine}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block mb-2 text-gray-300">Focus Area</label>
-                <select
-                  value={interviewDetails.focusArea}
-                  onChange={(e) => handleDetailChange("focusArea", e.target.value)}
-                  className="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                >
-                  {interviewDetails.track === "mba" ? (
-                    getMbaFocusAreas(interviewDetails.mbaSpecialization).map((fa) => (
-                      <option key={fa} value={fa}>
-                        {fa}
-                      </option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="technical">Technical</option>
-                      <option value="behavioral">Behavioral</option>
-                      <option value="system-design">System Design</option>
-                    </>
-                  )}
-                </select>
-              </div>
-            </div>
-
-            <div className="bg-gray-700 rounded border border-gray-600 p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="text-gray-300 text-sm">
-                  Microphone: {isMicOn ? "On" : "Off"}
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={startMic}
-                    className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-                  >
-                    Start Mic
-                  </button>
-                  <button
-                    onClick={stopMic}
-                    className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-                  >
-                    Stop
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-3 mt-3">
-                <button
-                  onClick={isMonitoring ? stopMonitoring : startMonitoring}
-                  className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-                >
-                  {isMonitoring ? "Stop Hearing" : "Hear My Voice"}
-                </button>
-
-                <button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-                >
-                  {isRecording ? "Stop Recording" : "Start Recording"}
-                </button>
-              </div>
-
-              <audio ref={monitorAudioRef} className="hidden" />
-
-              {recordedUrl && (
-                <div className="mt-3">
-                  <div className="text-gray-300 text-sm mb-1">Last recording (playback):</div>
-                  <audio controls src={recordedUrl} className="w-full" />
-                </div>
-              )}
-
-              {permissionError && (
-                <div className="text-red-300 text-sm mt-2">{permissionError}</div>
-              )}
-              <p className="text-gray-400 text-sm mt-2">
-                Optional: If your browser supports it, you can use speech-to-text during the interview.
-              </p>
-            </div>
-
-            <button
-              onClick={generateQuestions}
-              disabled={isLoading}
-              className="w-full bg-blue-600 py-3 rounded hover:bg-blue-500 disabled:opacity-50 transition-colors font-medium"
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-6 transition-colors duration-300">
+      <div className="max-w-6xl mx-auto pt-6">
+        <AnimatePresence mode="wait" initial={false}>
+          {interviewStage === "setup" && (
+            <motion.div
+              key="setup"
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="glass rounded-[2.5rem] p-8 md:p-12 shadow-premium max-w-3xl mx-auto"
             >
-              {isLoading ? "Starting..." : "Start Voice Interview"}
-            </button>
-          </div>
-        )}
-
-        {interviewStage === "interview" && questions.length > 0 && (
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold">
-                Question {currentQuestionIndex + 1} of {questions.length}
-              </h2>
-              <div className="text-gray-400 text-sm">
-                {interviewDetails.jobRole} ({interviewDetails.level})
+              <div className="text-center mb-10 space-y-2">
+                <h1 className="text-4xl font-extrabold tracking-tight">Setup Voice Interview</h1>
+                <p className="text-foreground/60 font-medium">Fine-tune your simulation parameters for a realistic audio experience.</p>
               </div>
-            </div>
 
-            <div className="bg-gray-700 p-4 rounded mb-6 min-h-24 border border-gray-600">
-              <p className="text-lg">{getQuestionText(questions[currentQuestionIndex])}</p>
-            </div>
+              <div className="grid md:grid-cols-2 gap-6 mb-10">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold ml-1 text-foreground/70">Company (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Google, Amazon"
+                    value={interviewDetails.company}
+                    onChange={(e) => handleDetailChange("company", e.target.value)}
+                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground placeholder-foreground/30 border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none"
+                  />
+                </div>
 
-            {(() => {
-              const item = questions[currentQuestionIndex];
-              const ideal = getIdealAnswer(item);
-              const refs = getReferences(item);
-              if (!ideal) return null;
-
-              return (
-                <div className="mb-6">
-                  <button
-                    type="button"
-                    onClick={() => setShowIdealAnswer((s) => !s)}
-                    className="text-sm px-3 py-2 rounded bg-gray-700 border border-gray-600 hover:bg-gray-600 transition"
-                  >
-                    {showIdealAnswer ? "Hide" : "Show"} Reference Answer (with GFG links)
-                  </button>
-                  {showIdealAnswer && (
-                    <div className="mt-3 bg-gray-700 p-4 rounded border border-gray-600">
-                      {refs.length > 0 && (
-                        <div className="mb-3 text-sm text-gray-200">
-                          <div className="font-semibold mb-1">References (Options)</div>
-                          <div className="flex flex-wrap gap-3">
-                            {refs.slice(0, 2).map((r, idx) => (
-                              <a
-                                key={`${idx}-${r?.url || "ref"}`}
-                                href={String(r?.url || "#")}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="underline text-blue-300 hover:text-blue-200"
-                              >
-                                {String(r?.label || `Option ${idx + 1}`)}
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <div className="text-sm text-gray-100 whitespace-pre-wrap">{ideal}</div>
-                    </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold ml-1 text-foreground/70">Job Role</label>
+                  <input
+                    type="text"
+                    placeholder={
+                      interviewDetails.track === "mba"
+                        ? "e.g. Management Trainee"
+                        : "e.g. Frontend Developer"
+                    }
+                    value={interviewDetails.jobRole}
+                    onChange={(e) => handleDetailChange("jobRole", e.target.value)}
+                    list={interviewDetails.track === "mba" ? "mba-job-roles-voice" : undefined}
+                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground placeholder-foreground/30 border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none"
+                  />
+                  {interviewDetails.track === "mba" && (
+                    <datalist id="mba-job-roles-voice">
+                      {getMbaJobRoleSuggestions(interviewDetails.mbaSpecialization).map((r) => (
+                        <option key={r} value={r} />
+                      ))}
+                    </datalist>
                   )}
                 </div>
-              );
-            })()}
 
-            <div className="mb-4 flex gap-3">
-              <button
-                onClick={() => speakQuestion(getQuestionText(questions[currentQuestionIndex]))}
-                className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-              >
-                {isSpeaking ? "Speaking..." : "Speak Question"}
-              </button>
-              <button
-                onClick={stopSpeaking}
-                className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-              >
-                Stop Voice
-              </button>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold ml-1 text-foreground/70">Experience Level</label>
+                  <select
+                    value={interviewDetails.level}
+                    onChange={(e) => handleDetailChange("level", e.target.value)}
+                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="entry">Entry Level</option>
+                    <option value="mid">Mid Level</option>
+                    <option value="senior">Senior Level</option>
+                  </select>
+                </div>
 
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-              >
-                {isRecording ? "Stop Rec" : "Record"}
-              </button>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold ml-1 text-foreground/70">Interview Track</label>
+                  <select
+                    value={interviewDetails.track}
+                    onChange={(e) => handleDetailChange("track", e.target.value)}
+                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="tech">Tech / Software</option>
+                    <option value="mba">MBA</option>
+                  </select>
+                </div>
 
-              <button
-                onClick={toggleListening}
-                className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-              >
-                {isListening ? "Stop Speech" : "Start Speech"}
-              </button>
-              <button
-                onClick={() => setCurrentAnswer("")}
-                className="bg-gray-600 px-4 py-2 rounded hover:bg-gray-500 transition-colors"
-              >
-                Clear
-              </button>
-            </div>
+                {interviewDetails.track === "mba" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold ml-1 text-foreground/70">MBA Specialization</label>
+                    <select
+                      value={interviewDetails.mbaSpecialization}
+                      onChange={(e) => handleDetailChange("mbaSpecialization", e.target.value)}
+                      className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
+                    >
+                      {MBA_SPECIALIZATIONS.map((s) => (
+                        <option key={s.key} value={s.key}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-            {recordedUrl && (
-              <div className="mb-4 bg-gray-700 p-3 rounded border border-gray-600">
-                <div className="text-gray-300 text-sm mb-1">Last recording (playback):</div>
-                <audio controls src={recordedUrl} className="w-full" />
+                <div className="space-y-2">
+                  <label className="text-sm font-bold ml-1 text-foreground/70">Focus Area</label>
+                  <select
+                    value={interviewDetails.focusArea}
+                    onChange={(e) => handleDetailChange("focusArea", e.target.value)}
+                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
+                  >
+                    {interviewDetails.track === "mba" ? (
+                      getMbaFocusAreas(interviewDetails.mbaSpecialization).map((fa) => (
+                        <option key={fa} value={fa}>
+                          {fa}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="technical">Technical</option>
+                        <option value="behavioral">Behavioral</option>
+                        <option value="system-design">System Design</option>
+                      </>
+                    )}
+                  </select>
+                </div>
               </div>
-            )}
-
-            {answerStructure && (
-              <div className="mb-4 bg-gray-700 p-4 rounded border border-purple-500/40">
-                <div className="flex items-center justify-between gap-3 mb-3">
+              
+              <div className="mb-6 flex items-center justify-between p-4 bg-secondary/50 rounded-2xl border border-white/5">
+                <div className="flex items-center gap-4">
+                  <div className={`p-3 rounded-xl ${isMicOn ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-500'}`}>
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                  </div>
                   <div>
-                    <div className="text-purple-300 font-semibold">Answer Structure</div>
-                    <div className="text-gray-300 text-xs">{answerStructure.title}</div>
+                    <h3 className="font-bold text-foreground">Microphone Status</h3>
+                    <p className="text-sm text-foreground/60">{isMicOn ? "Microphone tested and ready" : "Please test your microphone before starting"}</p>
+                    {permissionError && <p className="text-sm font-medium text-red-400 mt-1">{permissionError}</p>}
+                  </div>
+                </div>
+                <button
+                  onClick={toggleMic}
+                  className={`px-4 py-2 font-bold rounded-xl transition-all ${isMicOn ? 'bg-secondary text-foreground hover:bg-secondary/80' : 'bg-primary text-primary-foreground hover:opacity-90'}`}
+                >
+                  {isMicOn ? "Turn Off" : "Test Mic"}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                 <label className="flex items-center gap-3 cursor-pointer text-sm font-bold text-foreground/80 group">
+                    <input
+                      type="checkbox"
+                      checked={autoPlayVoice}
+                      onChange={(e) => setAutoPlayVoice(e.target.checked)}
+                      className="w-5 h-5 rounded bg-secondary border-border text-primary focus:ring-primary focus:ring-offset-background"
+                    />
+                    <span className="group-hover:text-foreground transition-colors">Auto-read questions aloud</span>
+                  </label>
+
+                  <button
+                    onClick={generateQuestions}
+                    disabled={isLoading || !isMicOn}
+                    className="shine-hover px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {isLoading ? "Starting Session..." : "Start Interview"}
+                  </button>
+              </div>
+            </motion.div>
+          )}
+
+          {interviewStage === "interview" && questions.length > 0 && (
+            <motion.div
+              key="interview"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col lg:flex-row gap-8"
+            >
+              {/* Main Interview Area */}
+              <div className="flex-1 flex flex-col gap-6">
+                <div className="glass rounded-[2.5rem] p-8 lg:p-12 shadow-premium flex-1 relative overflow-hidden flex flex-col items-center justify-center min-h-[500px]">
+                  <div className="absolute top-8 left-8 right-8 flex items-center justify-between">
+                    <div className="px-5 py-2 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest relative overflow-hidden">
+                      <div className="absolute inset-0 bg-primary/20" style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}></div>
+                      <span className="relative z-10">Question {currentQuestionIndex + 1} of {questions.length}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => speakQuestion(getQuestionText(questions[currentQuestionIndex]))}
+                        className="p-2 rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                        title="Read question aloud"
+                      >
+                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.898a9 9 0 010 12.728M5 13l4 4L19 7" /></svg>
+                      </button>
+                      <button
+                        onClick={toggleMic}
+                        className={`p-2 rounded-full transition-colors ${
+                          isMicOn
+                            ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
+                            : "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                        }`}
+                        title={isMicOn ? "Turn off mic" : "Turn on mic"}
+                      >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                           {isMicOn ? (
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                           ) : (
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
+                           )}
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const template = String(answerStructure.template || "");
-                        if (!template.trim()) return;
+                  <h2 className="text-2xl md:text-3xl font-extrabold leading-tight text-center max-w-3xl mb-12 relative z-10 pt-16">
+                    "{getQuestionText(questions[currentQuestionIndex])}"
+                  </h2>
 
-                        setCurrentAnswer((prev) => {
-                          const next = prev && String(prev).trim().length
-                            ? `${prev}\n\n${template}`
-                            : template;
-                          sttSessionRef.current.final = next;
-                          sttSessionRef.current.interim = "";
-                          return next;
-                        });
-                      }}
-                      className="bg-purple-600 px-3 py-2 rounded hover:bg-purple-500 transition-colors text-sm"
-                    >
-                      Insert
-                    </button>
+                  {/* AI Orb Visualizer */}
+                  <div className="flex-1 flex items-center justify-center relative w-full mb-8">
+                     <motion.div
+                       animate={{ 
+                         scale: isListening ? [1, 1.15, 1] : 1,
+                         opacity: isListening ? [0.6, 1, 0.6] : 0.8
+                       }}
+                       transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                       className="absolute"
+                     >
+                       <div className={`w-40 h-40 rounded-full blur-3xl ${isListening ? 'bg-primary/40' : 'bg-primary/20'}`}></div>
+                     </motion.div>
+                     
+                     <button
+                        onClick={toggleListening}
+                        disabled={!isMicOn}
+                        className={`relative z-10 w-32 h-32 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${
+                          isListening 
+                            ? 'border-primary bg-primary/20 shadow-[0_0_50px_rgba(124,92,252,0.4)]' 
+                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                        } ${!isMicOn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                     >
+                       <svg className={`w-12 h-12 transition-all ${isListening ? 'text-primary animate-pulse' : 'text-foreground/50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                         {isListening 
+                           ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v18l15-9L5 3z" />
+                           : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                         }
+                       </svg>
+                     </button>
+                  </div>
+                  <div className="text-center font-bold text-foreground/50 tracking-widest uppercase text-sm mb-12">
+                    {isListening ? "Listening..." : isMicOn ? "Click Orb To Speak" : "Mic Muted"}
+                  </div>
+
+                  <div className="absolute bottom-8 left-8 right-8 flex justify-between items-center z-10">
                     <button
-                      type="button"
-                      onClick={() => speakText(`${answerStructure.title}. ${answerStructure.template}`)}
-                      className="bg-purple-600 px-3 py-2 rounded hover:bg-purple-500 transition-colors text-sm"
+                      onClick={() => provideInstantHelp("manual")}
+                      disabled={isChecking}
+                      className="px-6 py-3 rounded-2xl bg-secondary/80 text-foreground font-bold hover:bg-secondary transition-colors disabled:opacity-50 flex items-center gap-2"
                     >
-                      Speak
+                      <span className="text-lg">💡</span> Get Hint
                     </button>
+                    
                     <button
-                      type="button"
-                      onClick={() => setAnswerStructure(null)}
-                      className="bg-gray-600 px-3 py-2 rounded hover:bg-gray-500 transition-colors text-sm"
+                      onClick={() => setShowIdealAnswer(!showIdealAnswer)}
+                      className="text-xs font-bold text-foreground/40 hover:text-foreground transition-colors"
                     >
-                      Hide
+                      {showIdealAnswer ? 'Hide' : 'View'} Target Concept
                     </button>
                   </div>
                 </div>
 
-                <pre className="whitespace-pre-wrap font-sans text-gray-100 text-sm bg-gray-800/50 p-3 rounded border border-gray-600">
-                  {answerStructure.template}
+                <div className="flex gap-4 items-center px-4">
+                  {currentQuestionIndex > 0 ? (
+                    <button
+                      onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
+                      className="px-6 py-4 rounded-2xl font-bold bg-transparent text-foreground/60 hover:text-foreground hover:bg-white/5 transition-all outline-none"
+                    >
+                      Previous
+                    </button>
+                  ) : (
+                    <div></div>
+                  )}
+
+                  <div className="flex-1"></div>
+
+                  {currentQuestionIndex < questions.length - 1 ? (
+                    <button
+                      onClick={submitAnswer}
+                      disabled={isChecking}
+                      className="shine-hover px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {answerCheck && answerCheck.index === currentQuestionIndex ? "Next Question" : "Check & Next"}
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={submitFinalAnswer}
+                      disabled={isLoading || isChecking}
+                      className="shine-hover px-10 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                    >
+                      {isLoading ? "Generating Feedback..." : "Finish Interview"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Sidebar: Transcript & Analysis */}
+              <div className="w-full lg:w-96 flex flex-col gap-6">
+                 <div className="glass rounded-[2rem] p-6 shadow-premium flex-1 flex flex-col max-h-[500px]">
+                   <h3 className="font-bold text-foreground/80 mb-4 flex items-center gap-2">
+                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                     Live Transcript
+                   </h3>
+                   <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                     <textarea
+                       className="w-full h-full min-h-[150px] p-4 bg-secondary/30 rounded-2xl border border-white/5 text-foreground/80 resize-none outline-none focus:ring-1 focus:ring-primary/50 text-sm leading-relaxed"
+                       value={currentAnswer}
+                       onChange={(e) => setCurrentAnswer(e.target.value)}
+                       placeholder="Speak clearly, your transcript will appear here..."
+                     />
+                   </div>
+                 </div>
+
+                 <AnimatePresence>
+                   {(assistantHelp || answerCheck || showIdealAnswer) && (
+                     <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="glass rounded-[2rem] p-6 shadow-premium overflow-hidden"
+                     >
+                        {showIdealAnswer && (
+                          <div className="mb-4">
+                             <h4 className="text-primary font-bold text-sm mb-2">Reference Concept</h4>
+                             <p className="text-sm text-foreground/80 leading-relaxed bg-secondary/50 p-4 rounded-2xl">{typeof questions[currentQuestionIndex] === "object" ? String(questions[currentQuestionIndex]?.answer || "").trim() : ""}</p>
+                          </div>
+                        )}
+
+                        {assistantHelp && (
+                           <div className="mb-4">
+                             <h4 className="text-amber-400 font-bold text-sm mb-2 flex items-center gap-2">💡 Hint</h4>
+                             <div className="bg-amber-400/10 border border-amber-400/20 p-4 rounded-2xl text-sm text-amber-200/90 leading-relaxed">
+                               {assistantHelp.approach}
+                             </div>
+                           </div>
+                        )}
+
+                        {answerCheck && answerCheck.index === currentQuestionIndex && (
+                           <div>
+                              <div className="flex items-center justify-between mb-4">
+                               <h3 className="font-bold text-emerald-400 flex items-center gap-2">
+                                 ✅ Analysis Ready
+                               </h3>
+                               {typeof answerCheck?.score === "number" && (
+                                 <div className="px-3 py-1 rounded-full bg-primary/20 text-primary text-sm font-bold">
+                                   {answerCheck.score}/10
+                                 </div>
+                               )}
+                              </div>
+                              <p className="text-sm text-foreground/90 font-medium mb-3 italic">"{String(answerCheck.feedback).split('\n')[0]}"</p>
+                              
+                              <div className="flex gap-2">
+                                {answerCheck?.verdict && (
+                                  <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold ${verdictStyles(answerCheck.verdict)}`}>
+                                    {String(answerCheck.verdict).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                           </div>
+                        )}
+                     </motion.div>
+                   )}
+                 </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
+
+          {interviewStage === "feedback" && (
+            <motion.div
+              key="feedback"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="glass rounded-[2.5rem] p-8 md:p-12 shadow-premium max-w-5xl mx-auto"
+            >
+              <div className="flex flex-col items-center justify-center text-center mb-12">
+                <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6 ring-4 ring-emerald-500/10">
+                  <svg className="w-10 h-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                </div>
+                <h1 className="text-4xl font-extrabold tracking-tight mb-4">Interview Completed</h1>
+                <p className="text-foreground/60 font-medium max-w-2xl">
+                  Great job! You've successfully completed the simulation. Here's a quick summary from the AI evaluator.
+                </p>
+              </div>
+
+              <div className="bg-secondary/30 rounded-3xl p-6 md:p-8 mb-10 border border-border/50">
+                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Performance Overview
+                </h3>
+                <pre className="whitespace-pre-wrap font-sans text-foreground/80 leading-relaxed text-sm md:text-base">
+                  {feedback}
                 </pre>
               </div>
-            )}
 
-            {assistantHelp && (
-              <div className="mb-4 bg-gray-700 p-4 rounded border border-blue-500/40">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-blue-300 font-semibold">Instant Help</div>
-                    <div className="text-gray-300 text-xs">
-                      Approach + sample answer (auto-filled below)
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        speakText(
-                          `${assistantHelp.spokenText} Here's a sample answer. ${assistantHelp.sampleAnswer}`
-                        )
-                      }
-                      className="bg-blue-600 px-3 py-2 rounded hover:bg-blue-500 transition-colors text-sm"
-                    >
-                      Speak
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAssistantHelp(null)}
-                      className="bg-gray-600 px-3 py-2 rounded hover:bg-gray-500 transition-colors text-sm"
-                    >
-                      Hide
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mb-3">
-                  <div className="text-gray-300 text-sm mb-1">Approach</div>
-                  <pre className="whitespace-pre-wrap font-sans text-gray-100 text-sm bg-gray-800/50 p-3 rounded border border-gray-600">
-                    {assistantHelp.approach}
-                  </pre>
-                </div>
-
-                <div>
-                  <div className="text-gray-300 text-sm mb-1">Sample Answer</div>
-                  <pre className="whitespace-pre-wrap font-sans text-gray-100 text-sm bg-gray-800/50 p-3 rounded border border-gray-600">
-                    {assistantHelp.sampleAnswer}
-                  </pre>
-                </div>
-              </div>
-            )}
-
-            {answerCheck && answerCheck.index === currentQuestionIndex && (
-              <div className="mb-4 bg-gray-700 p-4 rounded border border-green-500/40">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <div>
-                    <div className="text-green-300 font-semibold">Answer Check</div>
-                    <div className="text-gray-300 text-xs">
-                      {answerCheck.source === "ai" ? "AI" : "Coach"} feedback for your answer
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => speakText(answerCheck.feedback)}
-                      className="bg-green-600 px-3 py-2 rounded hover:bg-green-500 transition-colors text-sm"
-                      disabled={isChecking}
-                    >
-                      Speak
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        // Allow re-check after edits
-                        setAnswerCheck(null);
-                        lastCheckedAnswerRef.current = "";
-                      }}
-                      className="bg-gray-600 px-3 py-2 rounded hover:bg-gray-500 transition-colors text-sm"
-                      disabled={isChecking}
-                    >
-                      Recheck
-                    </button>
-                  </div>
-                </div>
-
-                {answerCheck?.verdict && (
-                  <div className="mb-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-1 rounded text-xs ${verdictStyles(
-                        answerCheck.verdict,
-                      )}`}
-                    >
-                      Verdict: {String(answerCheck.verdict)}
-                    </span>
-                    {typeof answerCheck?.score === "number" && (
-                      <span className="ml-2 text-gray-200 text-xs">Score: {answerCheck.score}/10</span>
-                    )}
-                  </div>
-                )}
-
-                {answerCheck?.warning && (
-                  <div className="text-yellow-200 text-xs mb-2">{String(answerCheck.warning)}</div>
-                )}
-
-                {answerCheck?.encouragement && (
-                  <div className="text-gray-100 text-sm mb-3">
-                    {String(answerCheck.encouragement)}
-                  </div>
-                )}
-
-                {Array.isArray(answerCheck?.resources) && answerCheck.resources.length > 0 && (
-                  <div className="mb-4">
-                    <div className="text-gray-200 text-sm mb-1">Recommended sources</div>
-                    <div className="flex flex-wrap gap-3 text-sm">
-                      {answerCheck.resources.slice(0, 3).map((r, idx) => (
-                        <a
-                          key={`res-${idx}-${r?.url || ""}`}
-                          href={String(r?.url || "#")}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="underline text-blue-300 hover:text-blue-200"
-                        >
-                          {String(r?.label || `Source ${idx + 1}`)}
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {(Array.isArray(answerCheck?.good) || Array.isArray(answerCheck?.improve)) && (
-                  <div className="space-y-3">
-                    {Array.isArray(answerCheck?.good) && answerCheck.good.length > 0 && (
-                      <div>
-                        <div className="text-gray-200 text-sm mb-1">What’s good</div>
-                        <ul className="text-gray-100 text-sm list-disc pl-5 space-y-1">
-                          {answerCheck.good.slice(0, 3).map((item, idx) => (
-                            <li key={`good-${idx}`}>{String(item)}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {Array.isArray(answerCheck?.improve) && answerCheck.improve.length > 0 && (
-                      <div>
-                        <div className="text-gray-200 text-sm mb-1">What to improve</div>
-                        <ul className="text-gray-100 text-sm list-disc pl-5 space-y-1">
-                          {answerCheck.improve.slice(0, 3).map((item, idx) => (
-                            <li key={`imp-${idx}`}>{String(item)}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {Array.isArray(answerCheck?.keyMissing) && answerCheck.keyMissing.length > 0 && (
-                      <div>
-                        <div className="text-gray-200 text-sm mb-1">Key missing points</div>
-                        <ul className="text-gray-100 text-sm list-disc pl-5 space-y-1">
-                          {answerCheck.keyMissing.slice(0, 2).map((item, idx) => (
-                            <li key={`miss-${idx}`}>{String(item)}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {answerCheck?.improvedAnswer && (
-                      <div>
-                        <div className="text-gray-200 text-sm mb-1">Suggested improved answer</div>
-                        <pre className="whitespace-pre-wrap font-sans text-gray-100 text-sm bg-gray-800/50 p-3 rounded border border-gray-600">
-                          {String(answerCheck.improvedAnswer)}
-                        </pre>
-                      </div>
-                    )}
-
-                    {answerCheck?.oneLinerTip && (
-                      <div className="text-gray-200 text-sm">
-                        <span className="text-gray-300">One-liner tip:</span> {String(answerCheck.oneLinerTip)}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!Array.isArray(answerCheck?.good) && !Array.isArray(answerCheck?.improve) && (
-                  <pre className="whitespace-pre-wrap font-sans text-gray-100 text-sm bg-gray-800/50 p-3 rounded border border-gray-600">
-                    {isChecking ? "Checking your answer..." : answerCheck.feedback}
-                  </pre>
-                )}
-
-                <div className="text-gray-300 text-xs mt-2">
-                  Tip: Click Submit Answer once to check, and again to continue.
-                </div>
-              </div>
-            )}
-
-            <div className="mb-6">
-              <label className="block mb-2 text-gray-300">Your Answer:</label>
-              <textarea
-                className="w-full p-3 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                rows={6}
-                value={currentAnswer}
-                onChange={(e) => setCurrentAnswer(e.target.value)}
-                placeholder="Type (or speak) your answer here..."
-              />
-            </div>
-
-            <div className="flex justify-between gap-4">
-              {currentQuestionIndex > 0 && (
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={() => {
-                    const prevIndex = currentQuestionIndex - 1;
-                    setCurrentQuestionIndex(prevIndex);
-                    setShowIdealAnswer(false);
-                    speakQuestion(getQuestionText(questions[prevIndex]));
+                    setInterviewStage("setup");
+                    setQuestions([]);
+                    setAnswers([]);
+                    setCurrentQuestionIndex(0);
+                    setFeedback("");
                   }}
-                  className="flex-1 bg-gray-600 py-2 rounded hover:bg-gray-500 transition-colors"
+                  className="shine-hover px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-[0.98] transition-all"
                 >
-                  Previous
+                  Start New Session
                 </button>
-              )}
-
-              {currentQuestionIndex < questions.length - 1 ? (
                 <button
-                  onClick={submitAnswer}
-                  className={`flex-1 bg-blue-600 py-2 rounded hover:bg-blue-500 transition-colors ${
-                    currentQuestionIndex > 0 ? "" : "ml-auto"
-                  }`}
+                  onClick={() => {
+                    setInterviewStage("interview");
+                    setCurrentQuestionIndex(0);
+                  }}
+                  className="px-8 py-4 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground font-bold transition-all"
                 >
-                  Submit Answer
+                  Review My Answers
                 </button>
-              ) : (
-                <button
-                  onClick={generateFeedback}
-                  disabled={isLoading}
-                  className="flex-1 bg-green-600 py-2 rounded hover:bg-green-500 transition-colors disabled:opacity-50"
-                >
-                  {isLoading ? "Generating Feedback..." : "Submit Final Answer"}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {interviewStage === "feedback" && (
-          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-            <h1 className="text-2xl font-bold mb-6 text-center">Interview Feedback</h1>
-
-            <div className="bg-gray-700 p-4 rounded mb-6 border border-gray-600">
-              <pre className="whitespace-pre-wrap font-sans">{feedback}</pre>
-            </div>
-
-            <div className="flex gap-4">
-              <button
-                onClick={() => {
-                  setInterviewStage("setup");
-                  setQuestions([]);
-                  setAnswers([]);
-                  setCurrentQuestionIndex(0);
-                  setFeedback("");
-                }}
-                className="flex-1 bg-blue-600 py-3 rounded hover:bg-blue-500 transition-colors font-medium"
-              >
-                New Interview
-              </button>
-
-              <button
-                onClick={() => {
-                  setInterviewStage("interview");
-                  setCurrentQuestionIndex(0);
-                }}
-                className="flex-1 bg-gray-600 py-3 rounded hover:bg-gray-500 transition-colors font-medium"
-              >
-                Review Answers
-              </button>
-            </div>
-          </div>
-        )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

@@ -1,14 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Sidebar from "../components/Sidebar.jsx";
+import { motion } from "framer-motion";
 
 const Questions = () => {
   const { topic } = useParams();
   const navigate = useNavigate();
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(min-width: 768px)").matches;
-  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [questions, setQuestions] = useState([]);
@@ -64,6 +61,7 @@ const Questions = () => {
         const token = localStorage.getItem("token");
         const response = await fetch(`/api/questions/${encodeURIComponent(topic || "")}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          credentials: "include",
         });
         if (!response.ok) {
           if (response.status === 401) {
@@ -87,95 +85,93 @@ const Questions = () => {
   }, [topic, navigate]);
 
   return (
-    <div className="flex min-h-screen bg-transparent text-slate-900 dark:bg-gray-900 dark:text-white radial-background">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      <div className={`flex-1 p-4 sm:p-6 md:p-8 transition-all duration-300 ${sidebarOpen ? "md:ml-64" : "md:ml-20"}`}>
-        <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-4">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">{title}</h1>
-              <p className="text-slate-600 dark:text-gray-300">Important interview questions with answers.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate("/question")}
-              className="px-4 py-2 rounded-lg border border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-black/10 hover:bg-white/80 dark:hover:bg-black/20 transition"
-            >
-              Back to Topics
+    <div className="min-h-screen text-white">
+      <div className="p-6 md:p-10 max-w-7xl mx-auto space-y-12">
+        
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pt-4">
+          <div>
+            <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white mb-4 flex items-center gap-2 text-sm font-bold transition-colors">
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span> Back to Question Bank
             </button>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white">{title}</h1>
           </div>
-
-          <div className="mb-6">
+          
+          <div className="relative w-full max-w-md group">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-violet-400 transition-colors">
+              search
+            </span>
             <input
               type="text"
+              placeholder="Search specific questions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search question / answer / tag..."
-              className="w-full px-4 py-3 rounded-lg bg-white/80 dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 border border-slate-200/70 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-pink-500"
+              className="w-full pl-12 pr-6 py-3.5 rounded-2xl bg-neutral-900 border border-white/10 focus:border-violet-500/50 focus:bg-neutral-800 text-white placeholder-gray-500 outline-none transition-all shadow-inner"
             />
           </div>
+        </div>
 
           {isLoading && (
-            <div className="bg-white/60 dark:bg-gray-800 border border-slate-200/70 dark:border-white/10 rounded-lg p-4">Loading...</div>
+            <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-6 text-center text-gray-400">Loading questions...</div>
           )}
 
           {error && (
-            <div className="bg-white/60 dark:bg-gray-800 border border-red-500 rounded-lg p-4 text-red-600 dark:text-red-200">
+            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 text-red-400">
               {error}
             </div>
           )}
 
           {!isLoading && !error && filtered.length === 0 && (
-            <div className="bg-white/60 dark:bg-gray-800 border border-slate-200/70 dark:border-white/10 rounded-lg p-4 text-slate-700 dark:text-gray-300">
-              No questions available for this topic.
+            <div className="bg-neutral-900/60 border border-white/10 rounded-2xl p-6 text-center text-gray-400">
+              No questions found for this topic.
             </div>
           )}
 
           {!isLoading && !error && filtered.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {filtered.map((item, idx) => (
-                <div
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: idx * 0.1 }}
+                  whileHover={{ scale: 1.01, x: 5 }}
                   key={idx}
-                  className="bg-white/60 dark:bg-gray-800 border border-slate-200/70 dark:border-white/10 rounded-lg p-4"
+                  className="bg-neutral-900/60 border border-white/5 hover:border-violet-500/30 transition-all rounded-[1.5rem] p-6"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-pink-700 dark:text-purple-300 font-semibold mb-2">Question {idx + 1}</div>
-                      <div className="text-slate-900 dark:text-gray-100 font-medium">{item.question}</div>
-                      {(item.difficulty || (item.tags && item.tags.length > 0)) && (
-                        <div className="mt-2 text-xs text-slate-600 dark:text-gray-300">
-                          {item.difficulty ? <span className="mr-2">Difficulty: {item.difficulty}</span> : null}
-                          {item.tags && item.tags.length > 0 ? <span>Tags: {item.tags.join(", ")}</span> : null}
-                        </div>
-                      )}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="w-8 h-8 rounded-full bg-violet-600/20 text-violet-400 font-bold flex items-center justify-center text-sm">{idx + 1}</span>
+                        {(item.difficulty || (item.tags && item.tags.length > 0)) && (
+                          <div className="flex gap-2 text-[10px] uppercase font-bold tracking-widest text-gray-500">
+                            {item.difficulty && <span className="bg-white/5 px-2 py-1 rounded border border-white/5">{item.difficulty}</span>}
+                            {item.tags && item.tags.length > 0 && <span className="bg-white/5 px-2 py-1 rounded border border-white/5">{item.tags.join(", ")}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-lg text-white font-medium mb-4 leading-relaxed">{item.question}</div>
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        setOpenMap((prev) => ({
-                          ...prev,
-                          [idx]: !prev[idx],
-                        }))
-                      }
-                      className="shrink-0 px-3 py-2 rounded-lg bg-slate-900 text-white dark:bg-purple-600 dark:hover:bg-purple-700 hover:bg-slate-800 transition text-sm"
+                      onClick={() => setOpenMap((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                      className="shrink-0 px-4 py-2.5 rounded-xl bg-white/5 text-gray-300 hover:bg-violet-600 hover:text-white transition-all text-sm font-semibold whitespace-nowrap"
                     >
-                      {openMap[idx] ? "Hide" : "Show"} Answer
+                      {openMap[idx] ? "Hide Answer" : "Show Answer"}
                     </button>
                   </div>
 
                   {openMap[idx] && (
-                    <div className="mt-4 rounded-lg border border-slate-200/70 dark:border-white/10 bg-white/70 dark:bg-black/20 p-4">
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Answer</div>
-                      <div className="text-sm text-slate-700 dark:text-gray-200 whitespace-pre-wrap">
+                    <div className="mt-4 rounded-xl border border-white/5 bg-black/40 p-5">
+                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-400 mb-3">Answer</div>
+                      <div className="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">
                         {item.answer || "Answer will be added soon."}
                       </div>
                     </div>
                   )}
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
-        </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const AppError = require("../Utils/AppError");
+const HistoryModel = require("../Models/history");
 
 const JWT_SECRET = process.env.JWT_SECRET || "myverysecretkey123";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
@@ -108,9 +109,16 @@ exports.googleLogin = async (idToken) => {
     }
 };
 
-exports.getUserById = async (userId) => {
-    const user = await User.findById(userId).select("-Password");
+exports.getUserById = async (userId, includeHistory = false) => {
+    const user = await User.findById(userId).select("-Password").lean();
     if (!user) throw new AppError("User not found", 404);
+
+    if (includeHistory) {
+        user.interviewHistory = await HistoryModel.find({ userId })
+            .sort({ date: -1 })
+            .limit(50);
+    }
+
     return user;
 };
 

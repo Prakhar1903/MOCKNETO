@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: mockneto-backend
+    ports:
+      - "5600:5600"
+    env_file:
+      - ./Backend/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5600/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+networks:
+  default:
+    name: mockneto-network

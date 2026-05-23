@@ -2,31 +2,41 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Ba
 import React from 'react';
 import { useState } from 'react';
 const skillData = [
-  { name: 'Technical Skills', value: 35, details: [
-    { category: 'Data Structures', score: 80 },
-    { category: 'Algorithms', score: 75 },
-    { category: 'Language Proficiency', score: 90 },
-    { category: 'System Design', score: 60 }
-  ]},
-  { name: 'Problem Solving', value: 25, details: [
-    { category: 'Logical Thinking', score: 85 },
-    { category: 'Debugging', score: 70 },
-    { category: 'Optimization', score: 65 }
-  ]},
-  { name: 'Communication', value: 20, details: [
-    { category: 'Clarity', score: 75 },
-    { category: 'Explanation', score: 80 },
-    { category: 'Active Listening', score: 90 }
-  ]},
-  { name: 'Behavioral', value: 15, details: [
-    { category: 'Teamwork', score: 85 },
-    { category: 'Leadership', score: 70 },
-    { category: 'Conflict Resolution', score: 75 }
-  ]},
-  { name: 'Time Management', value: 5, details: [
-    { category: 'Pacing', score: 60 },
-    { category: 'Prioritization', score: 70 }
-  ]}
+  {
+    name: 'Technical Skills', value: 35, details: [
+      { category: 'Data Structures', score: 80 },
+      { category: 'Algorithms', score: 75 },
+      { category: 'Language Proficiency', score: 90 },
+      { category: 'System Design', score: 60 }
+    ]
+  },
+  {
+    name: 'Problem Solving', value: 25, details: [
+      { category: 'Logical Thinking', score: 85 },
+      { category: 'Debugging', score: 70 },
+      { category: 'Optimization', score: 65 }
+    ]
+  },
+  {
+    name: 'Communication', value: 20, details: [
+      { category: 'Clarity', score: 75 },
+      { category: 'Explanation', score: 80 },
+      { category: 'Active Listening', score: 90 }
+    ]
+  },
+  {
+    name: 'Behavioral', value: 15, details: [
+      { category: 'Teamwork', score: 85 },
+      { category: 'Leadership', score: 70 },
+      { category: 'Conflict Resolution', score: 75 }
+    ]
+  },
+  {
+    name: 'Time Management', value: 5, details: [
+      { category: 'Pacing', score: 60 },
+      { category: 'Prioritization', score: 70 }
+    ]
+  }
 ];
 
 const COLORS = ['#8B5CF6', '#7C3AED', '#6D28D9', '#5B21B6', '#4C1D95'];
@@ -92,21 +102,21 @@ const InterviewAnalytics = () => {
                 activeShape={{ outerRadius: 90 }}
               >
                 {skillData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={COLORS[index % COLORS.length]} 
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
                     stroke="#1F2937"
                     strokeWidth={2}
                   />
                 ))}
               </Pie>
               <Tooltip content={<CustomTooltip />} />
-              <Legend 
-                layout="horizontal" 
-                verticalAlign="bottom" 
+              <Legend
+                layout="horizontal"
+                verticalAlign="bottom"
                 align="center"
                 wrapperStyle={{ paddingTop: '20px' }}
-                formatter={(value, entry, index) => (
+                formatter={(value, _entry, _index) => (
                   <span className="text-gray-300">{value}</span>
                 )}
               />
@@ -129,35 +139,35 @@ const InterviewAnalytics = () => {
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  type="number" 
-                  domain={[0, 100]} 
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
                   stroke="#9CA3AF"
                   tick={{ fill: '#D1D5DB' }}
                 />
-                <YAxis 
-                  dataKey="category" 
-                  type="category" 
+                <YAxis
+                  dataKey="category"
+                  type="category"
                   width={100}
                   stroke="#9CA3AF"
                   tick={{ fill: '#D1D5DB' }}
                 />
-                <Tooltip 
-                  contentStyle={{ 
+                <Tooltip
+                  contentStyle={{
                     backgroundColor: '#1F2937',
                     borderColor: '#4B5563',
                     borderRadius: '0.5rem'
                   }}
                   itemStyle={{ color: '#E5E7EB' }}
                 />
-                <Bar 
-                  dataKey="score" 
+                <Bar
+                  dataKey="score"
                   fill={SUB_COLORS[activeIndex % SUB_COLORS.length]}
                   radius={[0, 4, 4, 0]}
                   animationDuration={1500}
                 >
                   {skillData[activeIndex].details.map((entry, index) => (
-                    <Cell 
+                    <Cell
                       key={`cell-${index}`}
                       fill={`${SUB_COLORS[activeIndex % SUB_COLORS.length]}${Math.min(90, 50 + index * 10)}`}
                     />

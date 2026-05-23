@@ -1,300 +1,221 @@
-// eslint-disable-next-line no-unused-vars
 import React, { useState, useEffect } from 'react';
-// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { CameraIcon, EnvelopeIcon, LockClosedIcon, UserIcon } from '@heroicons/react/24/outline';
-import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar.jsx';
 import API from '../api.jsx';
 
 const Profile = () => {
   const [user, setUser] = useState({
-    UserName: '',
-    Email: '',
-    profileImage: ''
+    name: 'Alex Harrison',
+    email: 'alex@example.com',
+    role: 'Senior Frontend Engineer',
+    experience: 'Senior',
+    skills: ['React', 'TypeScript', 'System Design', 'Node.js'],
   });
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(min-width: 768px)').matches;
-  });
-  const [avatarError, setAvatarError] = useState(false);
-  const [password, setPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [saveError, setSaveError] = useState('');
-  const navigate = useNavigate();
+  const [message, setMessage] = useState('');
+  const [newSkill, setNewSkill] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
+    const local = JSON.parse(localStorage.getItem('user') || '{}');
+    const name = local.UserName || local.name;
+    const email = local.Email || local.email;
+    if (name || email) setUser(p => ({ ...p, ...(name && { name }), ...(email && { email }) }));
+  }, []);
 
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-
-    try {
-      if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(prev => ({
-          ...prev,
-          UserName: parsedUser.UserName || '',
-          Email: parsedUser.Email || '',
-          profileImage: parsedUser.profileImage || ''
-        }));
-      }
-    } catch (err) {
-      console.error('Error parsing user data:', err);
-    }
-
-    // Also refresh from backend so profile stays consistent across devices
-    (async () => {
-      try {
-        const res = await API.get('/me');
-        if (res?.data?.user) {
-          const backendUser = res.data.user;
-          setUser((prev) => ({
-            ...prev,
-            UserName: backendUser.UserName || prev.UserName,
-            Email: backendUser.Email || prev.Email,
-            profileImage: backendUser.profileImage || prev.profileImage,
-          }));
-          localStorage.setItem('user', JSON.stringify(backendUser));
-          window.dispatchEvent(new Event('user-updated'));
-        }
-      } catch {
-        // ignore: app should still work offline
-      }
-    })();
-  }, [navigate]);
+  const getInitials = (name) =>
+    name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map(n => n[0].toUpperCase()).join('');
 
   const handleSave = async () => {
-    setSaveError('');
     setIsSaving(true);
     try {
-      const payload = {
-        UserName: user.UserName,
-        Email: user.Email,
-        profileImage: user.profileImage,
-      };
-      if (password && password.trim()) payload.Password = password;
-
-      const res = await API.put('/me', payload);
-      const updated = res?.data?.user;
-      if (!updated) throw new Error('Profile update failed');
-
-      setUser((prev) => ({
-        ...prev,
-        UserName: updated.UserName || prev.UserName,
-        Email: updated.Email || prev.Email,
-        profileImage: updated.profileImage || prev.profileImage,
-      }));
-
-      localStorage.setItem('user', JSON.stringify(updated));
-      window.dispatchEvent(new Event('user-updated'));
-
-      setPassword('');
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2000);
-    } catch (err) {
-      setSaveError(err?.response?.data?.message || err?.message || 'Unable to save profile');
+      await new Promise(r => setTimeout(r, 800));
+      const prev = JSON.parse(localStorage.getItem('user') || '{}');
+      localStorage.setItem('user', JSON.stringify({ ...prev, name: user.name, email: user.email }));
+      setMessage('✓ Saved successfully');
+    } catch {
+      setMessage('Save failed. Please retry.');
     } finally {
       setIsSaving(false);
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        setSaveError('Please select an image under 2MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setUser(prev => ({ ...prev, profileImage: event.target.result }));
-        setAvatarError(false);
-      };
-      reader.readAsDataURL(file);
+  const addSkill = () => {
+    const s = newSkill.trim();
+    if (s && !user.skills.includes(s)) {
+      setUser(p => ({ ...p, skills: [...p.skills, s] }));
+      setNewSkill('');
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setUser(prev => ({ ...prev, [name]: value }));
-  };
+  const removeSkill = (s) => setUser(p => ({ ...p, skills: p.skills.filter(x => x !== s) }));
 
-  if (!user) return null; // or loading spinner
-
-  const initials = String(user?.UserName || '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p.charAt(0).toUpperCase())
-    .join('') || 'U';
+  const completion = 85;
 
   return (
-    <div className="flex min-h-screen bg-transparent text-slate-900 dark:bg-gray-900 dark:text-white radial-background">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      <div className={`flex-1 p-4 sm:p-6 md:p-8 transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-20'} `}>
+    <main className="text-white px-4 md:px-8 max-w-7xl mx-auto pt-8 pb-32">
+
+      {/* ── Header ── */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-400 mb-2">User Identity</p>
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+          Your <span className="text-white/25">Profile.</span>
+        </h1>
+      </motion.div>
+
+      {/* ── Main Grid ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        {/* ── LEFT: Profile Identity Card ── */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="min-h-screen bg-transparent py-12 px-4 sm:px-6 lg:px-8"
+          initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="lg:col-span-4 rounded-3xl bg-[#111111] border border-white/[0.06] p-8 flex flex-col items-center text-center relative overflow-hidden"
         >
-          <div className="max-w-md mx-auto bg-gray-800 rounded-3xl shadow-2xl overflow-hidden md:max-w-2xl border border-gray-700">
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, duration: 0.5 }}
-              className="p-8"
-            >
-              <div className="flex flex-col items-center justify-center mb-8">
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative group"
-                >
-                  {!avatarError && user.profileImage ? (
-                    <img
-                      className="h-32 w-32 rounded-full object-cover border-4 border-gray-700 shadow-lg"
-                      src={user.profileImage}
-                      alt="Profile"
-                      onError={() => setAvatarError(true)}
-                    />
-                  ) : (
-                    <div className="h-32 w-32 rounded-full border-4 border-gray-700 shadow-lg bg-gray-700 flex items-center justify-center text-3xl font-bold text-gray-200 select-none">
-                      {initials}
-                    </div>
-                  )}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    whileHover={{ opacity: 1 }}
-                    className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center cursor-pointer"
-                  >
-                    <label htmlFor="profile-upload" className="cursor-pointer">
-                      <CameraIcon className="h-8 w-8 text-gray-300" />
-                      <input
-                        id="profile-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageChange}
-                      />
-                    </label>
-                  </motion.div>
-                </motion.div>
-                <motion.h2
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.3 }}
-                  className="mt-4 text-2xl font-bold text-gray-100"
-                >
-                  {user.UserName || 'Your Name'}
-                </motion.h2>
+          {/* Top accent bar */}
+          <div className="absolute top-0 left-0 right-0 h-[3px] rounded-t-3xl bg-gradient-to-r from-violet-600 via-cyan-400 to-violet-600" />
+
+          {/* Avatar */}
+          <div className="relative mt-4 mb-6">
+            <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-violet-600 to-cyan-400 p-[3px]">
+              <div className="w-full h-full rounded-full bg-[#0c0c0c] flex items-center justify-center text-2xl font-black text-white">
+                {getInitials(user.name)}
               </div>
+            </div>
+            <div className="absolute -bottom-2 -right-1 w-10 h-10 rounded-full bg-[#111111] border border-[#111111] flex items-center justify-center">
+              <span className="material-symbols-outlined text-emerald-400 text-lg">verified</span>
+            </div>
+          </div>
 
-              <div className="space-y-6">
-                {saveError && (
-                  <div className="rounded border border-red-500/40 bg-red-500/10 text-red-200 px-4 py-3 text-sm">
-                    {saveError}
-                  </div>
-                )}
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="relative"
-                >
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <UserIcon className="h-5 w-5 text-gray-500" />
-                  </div>
-                  <input
-                    type="text"
-                    name="UserName"
-                    value={user.UserName}
-                    onChange={handleInputChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-700 rounded-xl bg-gray-700 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Full Name"
+          <h2 className="text-2xl font-black text-white leading-tight mb-1">{user.name}</h2>
+          <p className="text-sm text-gray-400 mb-8">{user.email}</p>
+
+          {/* Completion bar */}
+          <div className="w-full">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Profile Completion</span>
+              <span className="text-xs font-black text-cyan-400">{completion}%</span>
+            </div>
+            <div className="h-2 w-full bg-black/40 rounded-full border border-white/5 overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }} animate={{ width: `${completion}%` }}
+                transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
+                className="h-full rounded-full bg-gradient-to-r from-violet-600 to-cyan-400"
+              />
+            </div>
+          </div>
+
+          {/* Quick stats */}
+          <div className="w-full mt-8 pt-6 border-t border-white/[0.04] grid grid-cols-2 gap-4">
+            {[
+              { label: 'Interviews', value: '24', icon: 'forum' },
+              { label: 'Best Score', value: '92%', icon: 'grade' },
+            ].map(s => (
+              <div key={s.label} className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-black/30 border border-white/5">
+                <span className="material-symbols-outlined text-violet-400 text-xl">{s.icon}</span>
+                <p className="text-lg font-black text-white">{s.value}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* ── RIGHT COLUMN ── */}
+        <div className="lg:col-span-8 flex flex-col gap-5">
+
+          {/* Personal Info */}
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+            className="rounded-3xl bg-[#111111] border border-white/[0.06] p-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-6">Personal Information</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+              {[
+                { label: 'Username', key: 'name', type: 'text' },
+                { label: 'Contact Email', key: 'email', type: 'email' },
+              ].map(({ label, key, type }) => (
+                <div key={key} className="flex flex-col gap-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{label}</label>
+                  <input type={type} value={user[key]}
+                    onChange={e => setUser(p => ({ ...p, [key]: e.target.value }))}
+                    className="w-full bg-black/30 border border-white/[0.06] rounded-xl px-4 py-3.5 text-sm text-white focus:border-violet-500/40 outline-none transition-all placeholder-gray-600"
                   />
-                </motion.div>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-4 flex-wrap">
+              <button onClick={handleSave} disabled={isSaving}
+                className="px-7 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 active:scale-95 text-white text-[11px] font-black uppercase tracking-[0.18em] transition-all shadow-lg shadow-violet-600/20 disabled:opacity-50">
+                {isSaving ? 'Saving…' : 'Save Changes'}
+              </button>
+              {message && (
+                <span className={`text-xs font-bold ${message.startsWith('✓') ? 'text-emerald-400' : 'text-rose-400'}`}>{message}</span>
+              )}
+            </div>
+          </motion.div>
 
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="relative"
-                >
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <EnvelopeIcon className="h-5 w-5 text-gray-500" />
+          {/* Career + Skills — 2-col row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+              className="rounded-3xl bg-[#111111] border border-white/[0.06] p-8">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-6">Career Target</p>
+              <div className="space-y-3">
+                {[
+                  { label: 'Target Role', value: user.role },
+                  { label: 'Experience Level', value: user.experience },
+                ].map(item => (
+                  <div key={item.label} className="p-4 rounded-2xl bg-black/30 border border-white/5">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-1">{item.label}</p>
+                    <p className="text-sm font-bold text-white">{item.value}</p>
                   </div>
-                  <input
-                    type="email"
-                    name="Email"
-                    value={user.Email}
-                    onChange={handleInputChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-700 rounded-xl bg-gray-700 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Email Address"
-                  />
-                </motion.div>
+                ))}
+              </div>
+            </motion.div>
 
-                <motion.div
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="relative"
-                >
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <LockClosedIcon className="h-5 w-5 text-gray-500" />
-                  </div>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-700 rounded-xl bg-gray-700 text-gray-100 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="New Password"
-                  />
-                </motion.div>
-
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.7 }}
-                  className="pt-4"
-                >
-                  <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className={`w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-lg font-medium text-white ${isSaving ? 'bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-[1.01]`}
-                  >
-                    {isSaving ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Saving...
-                      </>
-                    ) : saveSuccess ? (
-                      <span className="flex items-center">
-                        <svg className="h-5 w-5 text-white mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Saved Successfully!
-                      </span>
-                    ) : (
-                      'Save Profile'
-                    )}
-                  </button>
-                </motion.div>
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+              className="rounded-3xl bg-[#111111] border border-white/[0.06] p-8">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-5">Technical Skills</p>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {user.skills.map(s => (
+                  <span key={s} onClick={() => removeSkill(s)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/30 border border-white/[0.06] text-[10px] font-bold text-gray-300 hover:border-rose-500/30 hover:text-rose-400 transition-all cursor-pointer group">
+                    {s}
+                    <span className="opacity-0 group-hover:opacity-100 text-xs">×</span>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input value={newSkill} onChange={e => setNewSkill(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addSkill()}
+                  placeholder="Add skill…"
+                  className="flex-1 min-w-0 bg-black/30 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:border-violet-500/40 outline-none transition-all"
+                />
+                <button onClick={addSkill}
+                  className="px-3 py-2 rounded-xl bg-violet-600/20 border border-violet-500/20 text-violet-400 text-xs font-black hover:bg-violet-600/30 transition-colors">
+                  +
+                </button>
               </div>
             </motion.div>
           </div>
-        </motion.div>
+
+          {/* AI Insight Card */}
+          <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="rounded-3xl bg-[#111111] border border-violet-500/15 p-8 relative overflow-hidden group hover:border-violet-500/25 transition-all">
+            <div className="absolute -bottom-16 -right-16 w-48 h-48 bg-violet-600/10 blur-[60px] rounded-full pointer-events-none group-hover:bg-violet-600/15 transition-all" />
+            <div className="flex items-start gap-5 relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-violet-600/15 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-violet-400">psychology</span>
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-2">AI Talent Assessment</p>
+                <p className="text-sm font-bold text-white mb-2">Personalized Insights</p>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  <span className="text-emerald-400 font-bold">Strengths: </span>Deep React knowledge, strong architectural thinking.<br />
+                  <span className="text-orange-400 font-bold">Growth areas: </span>Performance optimization at scale, data structures.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+        </div>
       </div>
-    </div>
+    </main>
   );
 };
 

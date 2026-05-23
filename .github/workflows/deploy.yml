@@ -1,0 +1,165 @@
+name: 🚀 Mockneto CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:    # Allow manual trigger from GitHub UI
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: mockneto-backend
+
+jobs:
+  # ════════════════════════════════════════════════════════════════════════════
+  #  JOB 1: Build & Deploy Backend → AWS ECR → EC2
+  # ════════════════════════════════════════════════════════════════════════════
+  deploy-backend:
+    name: 🐳 Build & Deploy Backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      # ── Configure AWS credentials from GitHub Secrets ──────────────────
+      - name: 🔐 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ── Authenticate Docker to Amazon ECR ──────────────────────────────
+      - name: 🔑 Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Build Docker image, tag with commit SHA + latest ───────────────
+      - name: 🏗️ Build, tag, and push image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          echo "Building Docker image..."
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./Backend
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "Pushing to ECR..."
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+          echo "✅ Image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:latest"
+
+      # ── SSH into EC2, pull new image, restart container ────────────────
+      - name: 🖥️ Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FRONTEND_ORIGIN: ${{ secrets.FRONTEND_ORIGIN }}
+          GEMINI_MODEL: gemini-flash-latest
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: ECR_REGISTRY,ECR_REPOSITORY,AWS_REGION,MONGO_URI,JWT_SECRET,GEMINI_API_KEY,FRONTEND_ORIGIN,GEMINI_MODEL
+          script: |
+            # Authenticate Docker to ECR from EC2
+            aws ecr get-login-password --region $AWS_REGION | \
+              docker login --username AWS --password-stdin $ECR_REGISTRY
+
+            echo "Pulling latest image..."
+            docker pull $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+            echo "Stopping old container..."
+            docker stop mockneto-backend || true
+            docker rm   mockneto-backend || true
+
+            echo "Starting new container..."
+            docker run -d \
+              --name mockneto-backend \
+              --restart unless-stopped \
+              -p 5600:5600 \
+              -e PORT=5600 \
+              -e NODE_ENV=production \
+              -e MONGODB_URI="$MONGO_URI" \
+              -e JWT_SECRET="$JWT_SECRET" \
+              -e GEMINI_API_KEY="$GEMINI_API_KEY" \
+              -e GEMINI_MODEL="$GEMINI_MODEL" \
+              -e FRONTEND_ORIGIN="$FRONTEND_ORIGIN" \
+              $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+            echo "Cleaning up old Docker images..."
+            docker image prune -f
+
+            echo "✅ Backend deployed successfully!"
+
+            # Quick health check
+            sleep 10
+            curl -sf http://localhost:5600/api/health && echo "🟢 Health check passed!" || echo "🔴 Health check failed"
+
+  # ════════════════════════════════════════════════════════════════════════════
+  #  JOB 2: Build Frontend → Upload to S3 → Invalidate CloudFront
+  # ════════════════════════════════════════════════════════════════════════════
+  deploy-frontend:
+    name: ⚛️ Build & Deploy Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ai-based-project/package-lock.json
+
+      - name: 📦 Install dependencies
+        working-directory: ai-based-project
+        run: npm ci
+
+      - name: 🏗️ Build React + Vite (Production)
+        working-directory: ai-based-project
+        env:
+          # Point API calls to the EC2 backend via public IP
+          VITE_API_BASE_URL: http://${{ secrets.EC2_HOST }}/api/users
+        run: |
+          npm run build
+          echo "✅ Frontend built successfully!"
+          ls -lah dist/
+
+      # ── Configure AWS credentials ──────────────────────────────────────
+      - name: 🔐 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # ── Sync dist/ to S3 (--delete removes old stale files) ───────────
+      - name: ☁️ Upload to S3
+        run: |
+          aws s3 sync ai-based-project/dist/ s3://${{ secrets.S3_BUCKET_NAME }}/ \
+            --delete \
+            --cache-control "public, max-age=31536000" \
+            --exclude "index.html"
+
+          # index.html must NOT be cached so users always get fresh app
+          aws s3 cp ai-based-project/dist/index.html s3://${{ secrets.S3_BUCKET_NAME }}/index.html \
+            --cache-control "no-cache, no-store, must-revalidate"
+
+          echo "✅ Frontend uploaded to S3!"
+
+      # ── Invalidate CloudFront so users get the new version instantly ───
+      - name: 🔄 Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+          echo "✅ CloudFront cache invalidated — users will get the new version!"

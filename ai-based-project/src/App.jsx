@@ -2,17 +2,16 @@ import React, { useEffect, useRef } from 'react';
 import Home from "./Pages/Home.jsx";
 import InterviewTips from "./components/InterviewTips.jsx";
 import Header from "./components/header.jsx";
-import Footer from "./components/Footer.jsx";
 import Login from './components/Login.jsx';
 import ContactUs from './components/ContactUs.jsx';
-import Eror404 from './components/Eror404.jsx'; 
+import Eror404 from './components/Eror404.jsx';
 import AboutUs from './components/AboutUs.jsx';
 import Reports from './Pages/Reports.jsx';
 import Profile from './Pages/Profile.jsx';
 import Settings from './Pages/Settings.jsx';
 import QuestionBank from './Pages/QuestionBank.jsx';
 import Faq from './Pages/Faq.jsx';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
 
 import "./App.css";
 import Dashboard from './Pages/Dashboard.jsx';
@@ -24,6 +23,8 @@ import Questions from './Pages/Questions.jsx';
 import { Privacy, Terms, Cookies, GDPR } from './Pages/LegalPage.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
+import MainLayout from './components/MainLayout.jsx';
+import DashboardLayout from './components/DashboardLayout.jsx';
 
 function App() {
   // Warm up Render backend as soon as someone opens the frontend.
@@ -59,100 +60,50 @@ function App() {
   }, []);
 
   const router = createBrowserRouter([
+    // ── Public pages (with standard Header/Footer) ──────────────────────────
     {
-      path: "/",
-      element: <><Header/><Home/><Footer/></>
+      element: <MainLayout />,
+      children: [
+        { path: "/", element: <Home /> },
+        { path: "/interviewtips", element: <InterviewTips /> },
+        { path: "/contactus", element: <ContactUs /> },
+        { path: "/aboutus", element: <AboutUs /> },
+        { path: "/Faq", element: <Faq /> },
+        { path: "/faq", element: <Faq /> },
+        { path: "/privacy", element: <Privacy /> },
+        { path: "/terms", element: <Terms /> },
+        { path: "/cookies", element: <Cookies /> },
+        { path: "/gdpr", element: <GDPR /> },
+        { path: "*", element: <Eror404 /> },
+      ]
     },
+    // ── Login page ──────────────────────────────────────────────────────────
     {
       path: "/login",
-      element: <><Header/><Login/></>
+      element: <><Header /><Login /></>
     },
+    // ── All authenticated app pages share DashboardLayout (one nav) ─────────
     {
-      path: "/dashboard",
-      element: <RequireAuth><><Header/><Dashboard/></></RequireAuth>
+      element: <RequireAuth><DashboardLayout /></RequireAuth>,
+      children: [
+        { path: "/dashboard",        element: <Dashboard /> },
+        { path: "/reports",          element: <Reports /> },
+        { path: "/question",         element: <QuestionBank /> },
+        { path: "/settings",         element: <Settings /> },
+        { path: "/profile",          element: <Profile /> },
+        { path: "/interviewsetup",   element: <InterviewSetup /> },
+        { path: "/questions/:topic", element: <Questions /> },
+        { path: "/chat-interview",   element: <ChatInterview /> },
+        { path: "/video-interview",  element: <VideoInterview /> },
+        { path: "/voice-interview",  element: <VoiceInterview /> },
+      ]
     },
-    {
-      path: "/interviewtips",
-      element: <><Header/><InterviewTips/><Footer/></>
-    },
-    {
-      path: "/contactus",
-      element: <><Header/><ContactUs/><Footer/></>
-    },
-    {
-      path: "/aboutus",
-      element: <><Header/><AboutUs/><Footer/></>
-    },
-    {
-      path: "/reports",
-      element: <RequireAuth><><Header/><Reports/><Footer/></></RequireAuth>
-    },
-    {
-      path: "/profile",
-      element: <RequireAuth><><Header/><Profile/><Footer/></></RequireAuth>
-    },
-    {
-      path: "/question",
-      element: <RequireAuth><><Header/><QuestionBank/><Footer/></></RequireAuth>
-    },
-    {
-      path: "/settings",
-      element: <RequireAuth><><Header/><Settings/><Footer/></></RequireAuth>
-    },
-    {
-      path: "/Faq",
-      element: <><Header/><Faq/><Footer/></>
-    },
-    {
-      path: "/faq",
-      element: <><Header/><Faq/><Footer/></>
-    },
-    {
-      path: "/interviewsetup",
-      element: <RequireAuth><><Header/><InterviewSetup/><Footer/></></RequireAuth>
-    },
-    {
-      path: "/chat-interview",
-      element: <RequireAuth><><Header/><ChatInterview/></></RequireAuth>
-    },
-    {
-      path: "/video-interview",
-      element: <RequireAuth><><Header/><VideoInterview/></></RequireAuth>
-    },
-    {
-      path: "/voice-interview",
-      element: <RequireAuth><><Header/><VoiceInterview/></></RequireAuth>
-    },
-    {
-      path: "/questions/:topic",
-      element: <RequireAuth><><Header/><Questions/><Footer/></></RequireAuth>
-    },
-    {
-      path: "/privacy",
-      element: <><Header/><Privacy/><Footer/></>
-    },
-    {
-      path: "/terms",
-      element: <><Header/><Terms/><Footer/></>
-    },
-    {
-      path: "/cookies",
-      element: <><Header/><Cookies/><Footer/></>
-    },
-    {
-      path: "/gdpr",
-      element: <><Header/><GDPR/><Footer/></>
-    },
-    {
-      path: "*",
-      element: <><Header/><Eror404/><Footer/></>
-    }
   ])
-    return (
-      <ThemeProvider>
-        <RouterProvider router={router} />
-      </ThemeProvider>
-    )
+  return (
+    <ThemeProvider>
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  )
 }
 
 export default App;

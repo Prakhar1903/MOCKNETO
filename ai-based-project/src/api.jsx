@@ -12,17 +12,6 @@ const API = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => {
-  return Promise.reject(error);
-});
-
 // Response interceptor
 API.interceptors.response.use(
   (response) => {
@@ -30,10 +19,13 @@ API.interceptors.response.use(
   },
   (error) => {
     if (error.response && error.response.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem('token');
+      // Clear both user and token to ensure a clean state
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      localStorage.removeItem('token');
+      // Avoid redirect loop if already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

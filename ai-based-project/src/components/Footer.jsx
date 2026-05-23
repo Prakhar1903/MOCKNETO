@@ -39,6 +39,7 @@ const Footer = () => {
         <li><Link to="/dashboard">Practice Interview</Link></li>
         <li><Link to="/interviewtips">Interview Tips</Link></li>
         <li><Link to="/interviewsetup">Mock Interview</Link></li>
+        <li><Link to="/faq">Help & FAQ</Link></li>
         <li><Link to="/aboutus">About Us</Link></li>
         <li><Link to="/contactus">Contact</Link></li>
       </ul>

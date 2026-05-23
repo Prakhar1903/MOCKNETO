@@ -1,4 +1,5 @@
 const UserModel = require("../Models/user");
+const HistoryModel = require("../Models/history");
 const {
     buildQuestionPrompt,
     buildFeedbackPrompt,
@@ -322,6 +323,7 @@ exports.checkAnswer = async (body) => {
             score: 0,
             encouragement: buildEncouragement({ score: 0 }),
             resources,
+            helpful: "Your answer is too short. Please provide a more detailed response.",
             improve: ["Your answer is too short. Expand with clear explanation.", "Add 1 example or evidence."],
             improvedAnswer: sampleAnswer,
         };
@@ -331,17 +333,40 @@ exports.checkAnswer = async (body) => {
     try {
         const ai = await callGeminiText({ prompt, temperature: 0.4, maxOutputTokens: 700 });
         if (ai.ok && ai.text) {
-            // Logic for parsing JSON and patching with sample answer if AI fails
-            // (Kept shorter for migration, assuming safeParseJson and similar are available)
-            return {
-                source: "ai",
-                feedback: ai.text,
-                score: quality.lowEffort ? 0 : 5, // Simple placeholder for logic
-                resources,
-                improvedAnswer: sampleAnswer,
-            };
+            // Robust JSON extraction
+            let jsonText = ai.text.trim();
+            if (jsonText.startsWith("```")) {
+                jsonText = jsonText.replace(/^```(?:json)?\s+/, "").replace(/\s+```$/, "");
+            }
+            
+            try {
+                const parsed = JSON.parse(jsonText);
+                return {
+                    source: "ai",
+                    ...parsed,
+                    // Map AI fields to frontend fields
+                    helpful: parsed.oneLinerTip || parsed.helpful || "",
+                    good: Array.isArray(parsed.good) ? parsed.good : [],
+                    improve: Array.isArray(parsed.improve) ? parsed.improve : [],
+                    resources,
+                    improvedAnswer: parsed.improvedAnswer || sampleAnswer,
+                };
+            } catch (err) {
+                console.error("Failed to parse AI JSON:", err, "Raw:", ai.text);
+                // Fallback inside AI success if JSON is invalid
+                return {
+                    source: "ai-fallback",
+                    feedback: ai.text,
+                    verdict: "Okay",
+                    score: 5,
+                    resources,
+                    improvedAnswer: sampleAnswer,
+                };
+            }
         }
-    } catch (err) { }
+    } catch (err) { 
+        console.error("AI checkAnswer service error:", err);
+    }
 
     const fallback = evaluateFallback({ qa: [{ question, answer }] });
     return {
@@ -355,31 +380,24 @@ exports.checkAnswer = async (body) => {
 
 // Core Business Logic: Get History
 exports.getHistory = async (userId) => {
-    const user = await UserModel.findById(userId).select("interviewHistory");
-    if (!user) return [];
-    return (user.interviewHistory || []).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, MAX_HISTORY);
+    return await HistoryModel.find({ userId })
+        .sort({ date: -1 })
+        .limit(MAX_HISTORY);
 };
 
 // Core Business Logic: Save History
 exports.saveHistory = async (userId, data) => {
-    const user = await UserModel.findById(userId);
-    if (!user) throw new Error("User not found");
-
-    user.interviewHistory = user.interviewHistory || [];
-    user.interviewHistory.unshift({
+    const history = new HistoryModel({
+        userId,
         ...data,
         date: normalizeDate(data.date),
     });
-    user.interviewHistory = user.interviewHistory.slice(0, MAX_HISTORY);
-    await user.save();
+    await history.save();
     return { ok: true };
 };
 
 // Core Business Logic: Clear History
 exports.clearHistory = async (userId) => {
-    const user = await UserModel.findById(userId);
-    if (!user) throw new Error("User not found");
-    user.interviewHistory = [];
-    await user.save();
+    await HistoryModel.deleteMany({ userId });
     return { ok: true };
 };

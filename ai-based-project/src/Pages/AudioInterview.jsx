@@ -55,6 +55,7 @@ const AudioInterview = () => {
           focusArea: interviewDetails.focusArea,
           count: 5,
         }),
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -191,6 +192,7 @@ const AudioInterview = () => {
           questions,
           answers,
         }),
+        credentials: "include",
       });
 
       if (!response.ok) {

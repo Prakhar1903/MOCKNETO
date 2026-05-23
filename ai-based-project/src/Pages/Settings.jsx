@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import Sidebar from '../components/Sidebar.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import API from '../api.jsx';
+import { motion } from 'framer-motion';
 
 const SETTINGS_KEY = 'appSettings';
 
@@ -16,282 +16,202 @@ function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return defaultSettings;
-    const parsed = JSON.parse(raw);
-    return { ...defaultSettings, ...(parsed || {}) };
-  } catch {
-    return defaultSettings;
-  }
+    return { ...defaultSettings, ...(JSON.parse(raw) || {}) };
+  } catch { return defaultSettings; }
 }
 
-function saveSettings(settings) {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch {
-    // ignore
-  }
+function saveSettings(s) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch {}
 }
 
 const Settings = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(min-width: 768px)').matches;
-  });
-   const { theme, setTheme, resolvedTheme } = useTheme();
-   const [settings, setSettings] = useState(() => loadSettings());
-   const [message, setMessage] = useState('');
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [settings, setSettings] = useState(() => loadSettings());
+  const [message, setMessage] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [user, setUser] = useState({ name: 'User', email: 'user@example.com', initials: 'U' });
 
-   useEffect(() => {
-     saveSettings(settings);
-     window.dispatchEvent(new Event('settings-updated'));
-   }, [settings]);
+  useEffect(() => { saveSettings(settings); }, [settings]);
 
-   // Load settings from backend (if logged in), then merge into local defaults
-   useEffect(() => {
-     const token = localStorage.getItem('token');
-     if (!token) return;
+  useEffect(() => {
+    (async () => {
+      try {
+        setIsSyncing(true);
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        const name = u.UserName || u.name || 'User';
+        const parts = name.trim().split(/\s+/).filter(Boolean);
+        const initials = parts.slice(0, 2).map(p => p[0].toUpperCase()).join('');
+        setUser({ name, email: u.Email || u.email || 'user@example.com', initials: initials || 'U' });
+        const res = await API.get('/me');
+        const backend = res?.data?.user?.settings;
+        if (backend) setSettings(s => ({ ...s, ...backend }));
+      } catch {} finally { setIsSyncing(false); }
+    })();
+  }, [setTheme]);
 
-     (async () => {
-       try {
-         setIsSyncing(true);
-         const res = await API.get('/me');
-         const backend = res?.data?.user?.settings;
-         if (backend && typeof backend === 'object') {
-           setSettings((s) => ({ ...s, ...backend }));
-            // Only pull theme from backend if there's no local preference yet.
-            // This prevents "auto dark" overriding the user's selection on every load.
-            let hasLocalTheme = false;
-            try {
-              const local = localStorage.getItem('theme');
-              hasLocalTheme = !!local && ['light', 'dark', 'system'].includes(local);
-            } catch {
-              hasLocalTheme = false;
-            }
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      try { setIsSyncing(true); await API.put('/me', { settings: { ...settings, theme } }); }
+      catch {} finally { setIsSyncing(false); }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [settings, theme]);
 
-            if (!hasLocalTheme && backend.theme && ['light', 'dark', 'system'].includes(backend.theme)) {
-              setTheme(backend.theme);
-            }
-         }
-       } catch {
-         // ignore (offline or backend not available)
-       } finally {
-         setIsSyncing(false);
-       }
-     })();
-   }, [setTheme]);
-
-   // Persist settings to backend (debounced) when logged in
-   useEffect(() => {
-     const token = localStorage.getItem('token');
-     if (!token) return;
-
-     const toSave = {
-       ...settings,
-       theme,
-     };
-
-     const t = setTimeout(async () => {
-       try {
-         setIsSyncing(true);
-         const res = await API.put('/me', { settings: toSave });
-         const updated = res?.data?.user;
-         if (updated) {
-           localStorage.setItem('user', JSON.stringify(updated));
-           window.dispatchEvent(new Event('user-updated'));
-         }
-       } catch {
-         // ignore (still saved in localStorage)
-       } finally {
-         setIsSyncing(false);
-       }
-     }, 500);
-
-     return () => clearTimeout(t);
-   }, [settings, theme]);
-
-   const themeLabel = useMemo(() => {
-     if (theme === 'system') return `System (${resolvedTheme})`;
-     return theme;
-   }, [theme, resolvedTheme]);
-
-   const clearInterviewHistory = async () => {
-     try {
-       const token = localStorage.getItem('token');
-       if (token) {
-         try {
-           await fetch('/api/interview/history', {
-             method: 'DELETE',
-             headers: {
-               Authorization: `Bearer ${token}`,
-             },
-           });
-         } catch {
-           // ignore
-         }
-       }
-
-       localStorage.removeItem('interviewFeedback');
-       setMessage('Interview history cleared.');
-       setTimeout(() => setMessage(''), 2000);
-     } catch {
-       setMessage('Unable to clear history.');
-       setTimeout(() => setMessage(''), 2000);
-     }
-   };
-
-   const resetSettings = () => {
-     setSettings(defaultSettings);
-     setMessage('Settings reset to defaults.');
-     setTimeout(() => setMessage(''), 2000);
-   };
+  const showToast = (msg) => { setMessage(msg); setTimeout(() => setMessage(''), 3000); };
 
   return (
-    <div className="flex min-h-screen bg-transparent text-slate-900 dark:bg-gray-900 dark:text-white radial-background">
-      <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      <div className={`flex-1 p-4 sm:p-6 md:p-8 transition-all duration-300 ${sidebarOpen ? 'md:ml-64' : 'md:ml-20'}`}>
-      <div className="p-4 sm:p-6 md:p-8">
-        <h1 className="text-2xl font-bold mb-2">Settings</h1>
-        <p className="text-sm text-slate-600 dark:text-gray-300 mb-6">
-          Customize appearance and interview preferences.
-        </p>
+    <main className="text-white px-6 md:px-10 pt-8 pb-28 w-full">
 
+      {/* ── Page Header ── */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
+        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-cyan-400 mb-2">Configuration</p>
+        <div className="flex items-center gap-4">
+          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">Settings</h1>
+          {isSyncing && (
+            <motion.span animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+              className="material-symbols-outlined text-gray-600 text-2xl">sync</motion.span>
+          )}
+        </div>
+        <p className="text-gray-400 mt-3 text-sm max-w-lg">Manage your preferences, interview settings, and appearance.</p>
+      </motion.div>
+
+      {/* ── Toast ── */}
+      <AnimatePresence>
         {message && (
-          <div className="mb-4 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200 px-4 py-3 text-sm">
+          <motion.div initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="fixed top-6 right-6 z-50 px-6 py-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm font-bold shadow-2xl backdrop-blur-md">
             {message}
-          </div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
-        <div className="rounded-lg p-6 shadow-lg max-w-3xl bg-white/70 dark:bg-gray-800 border border-slate-200/70 dark:border-gray-700 backdrop-blur">
-          <div className="space-y-6">
-            <Section title="Appearance">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-medium">Theme</div>
-                  <div className="text-sm text-slate-600 dark:text-gray-300">Current: {themeLabel}</div>
-                  {isSyncing && <div className="text-xs text-slate-500 dark:text-gray-400 mt-1">Syncing…</div>}
-                </div>
-                <select
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                  className="bg-slate-50 dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg focus:ring-purple-500 focus:border-purple-500 block p-2.5"
-                >
-                  <option value="system">System</option>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
+      {/* ── GRID ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Account — spans 2 cols */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="lg:col-span-2 rounded-3xl bg-[#111111] border border-white/[0.06] p-8">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-6">Account Details</p>
+          <div className="flex items-center gap-5 flex-wrap">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600/30 to-cyan-500/20 border border-violet-500/20 flex items-center justify-center text-xl font-black text-white">
+              {user.initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xl font-bold text-white truncate">{user.name}</p>
+              <p className="text-sm text-gray-400 truncate">{user.email}</p>
+            </div>
+            <span className="px-4 py-2 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-black uppercase tracking-widest flex-shrink-0">
+              PRO
+            </span>
+          </div>
+        </motion.div>
+
+        {/* Appearance — 1 col */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+          className="rounded-3xl bg-[#111111] border border-white/[0.06] p-8 flex flex-col gap-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Appearance</p>
+          <div className="flex-1 flex flex-col justify-center gap-4">
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-black/30 border border-white/5">
+              <span className="material-symbols-outlined text-cyan-400">display_settings</span>
+              <div>
+                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Active Theme</p>
+                <p className="text-sm font-bold text-white capitalize">{theme === 'system' ? `System (${resolvedTheme})` : theme}</p>
               </div>
-            </Section>
-
-            <Section title="Account">
-              <ToggleSetting
-                label="Email notifications"
-                checked={!!settings.emailNotifications}
-                onChange={(v) => setSettings((s) => ({ ...s, emailNotifications: v }))}
-              />
-            </Section>
-
-            <Section title="Interview Preferences">
-              <SelectSetting
-                label="Default difficulty"
-                options={['Easy', 'Medium', 'Hard']}
-                value={settings.defaultDifficulty}
-                onChange={(v) => setSettings((s) => ({ ...s, defaultDifficulty: v }))}
-              />
-              <SelectSetting
-                label="Preferred language"
-                options={['English', 'Spanish', 'French', 'German']}
-                value={settings.preferredLanguage}
-                onChange={(v) => setSettings((s) => ({ ...s, preferredLanguage: v }))}
-              />
-              <ToggleSetting
-                label="Auto-play interviewer voice (Voice Interview)"
-                checked={!!settings.autoPlayVoice}
-                onChange={(v) => setSettings((s) => ({ ...s, autoPlayVoice: v }))}
-              />
-            </Section>
-
-            <Section title="Data">
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={clearInterviewHistory}
-                  className="bg-slate-900 hover:bg-slate-800 text-white dark:bg-purple-600 dark:hover:bg-purple-700 font-medium py-2 px-4 rounded transition-colors"
-                >
-                  Clear interview history
+            </div>
+            <div className="grid grid-cols-3 gap-1 bg-black/30 rounded-xl p-1 border border-white/5">
+              {['light', 'dark', 'system'].map(t => (
+                <button key={t} onClick={() => setTheme(t)}
+                  className={`py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${theme === t ? 'bg-violet-600 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+                  {t}
                 </button>
-                <button
-                  type="button"
-                  onClick={resetSettings}
-                  className="bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white dark:border-gray-600 font-medium py-2 px-4 rounded transition-colors"
-                >
-                  Reset settings
-                </button>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Interview Prefs — spans 2 cols */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="lg:col-span-2 rounded-3xl bg-[#111111] border border-white/[0.06] p-8">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-6">Interview Preferences</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+            <SettingSelect label="Default Difficulty" options={['Easy', 'Medium', 'Hard']} value={settings.defaultDifficulty}
+              onChange={v => setSettings(s => ({ ...s, defaultDifficulty: v }))} />
+            <SettingSelect label="Preferred Language" options={['English', 'Spanish', 'French', 'German']} value={settings.preferredLanguage}
+              onChange={v => setSettings(s => ({ ...s, preferredLanguage: v }))} />
+          </div>
+          <div className="pt-6 border-t border-white/[0.04]">
+            <SettingToggle label="Auto-play AI Voice" desc="Automatically read responses aloud during interviews."
+              checked={!!settings.autoPlayVoice} onChange={v => setSettings(s => ({ ...s, autoPlayVoice: v }))} />
+          </div>
+        </motion.div>
+
+        {/* Notifications — 1 col */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+          className="rounded-3xl bg-[#111111] border border-white/[0.06] p-8 flex flex-col justify-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-6">Notifications</p>
+          <SettingToggle label="Email Alerts" desc="Weekly digests and interview reminders."
+            checked={!!settings.emailNotifications} onChange={v => setSettings(s => ({ ...s, emailNotifications: v }))} />
+        </motion.div>
+
+        {/* Danger Zone — full width */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="lg:col-span-3 rounded-3xl bg-[#111111] border border-rose-500/10 p-8">
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-6">Danger Zone</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="flex items-center justify-between gap-4 p-5 rounded-2xl bg-rose-500/5 border border-rose-500/10">
+              <div>
+                <p className="text-sm font-bold text-white">Clear History</p>
+                <p className="text-xs text-gray-500 mt-1">Remove all local interview cache.</p>
               </div>
-              <p className="text-xs text-slate-500 dark:text-gray-400 mt-2">
-                These settings are stored in your browser (localStorage).
-              </p>
-            </Section>
-
-            <div className="pt-4 border-t border-slate-200 dark:border-gray-700">
-              <button
-                type="button"
-                className="bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded transition-colors"
-                onClick={() => setMessage('Delete account is not enabled yet.')}
-              >
-                Delete Account
+              <button onClick={() => { try { localStorage.removeItem('interviewFeedback'); showToast('History cleared.'); } catch {} }}
+                className="px-5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest transition-colors flex-shrink-0">
+                Clear
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-4 p-5 rounded-2xl bg-orange-500/5 border border-orange-500/10">
+              <div>
+                <p className="text-sm font-bold text-white">Factory Reset</p>
+                <p className="text-xs text-gray-500 mt-1">Restore all settings to defaults.</p>
+              </div>
+              <button onClick={() => { setSettings(defaultSettings); setTheme('system'); showToast('Settings reset.'); }}
+                className="px-5 py-2.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 text-[10px] font-black uppercase tracking-widest transition-colors flex-shrink-0">
+                Reset
               </button>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-      </div>
-  )
-}
+        </motion.div>
 
-const Section = ({ title, children }) => {
-  return (
-    <div className="pb-6 border-b border-slate-200 dark:border-gray-700">
-      <h2 className="text-lg font-semibold mb-4">{title}</h2>
-      <div className="space-y-4">
-        {children}
       </div>
-    </div>
-  )
-}
+    </main>
+  );
+};
 
-const ToggleSetting = ({ label, checked, onChange }) => {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-slate-700 dark:text-gray-300">{label}</span>
-      <label className="relative inline-flex items-center cursor-pointer">
-        <input
-          type="checkbox"
-          className="sr-only peer"
-          checked={checked}
-          onChange={(e) => onChange?.(e.target.checked)}
-        />
-        <div className="w-11 h-6 bg-slate-300 dark:bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-      </label>
-    </div>
-  )
-}
+const AnimatePresence = ({ children }) => <>{children}</>;
 
-const SelectSetting = ({ label, options, value, onChange }) => {
-  return (
+const SettingToggle = ({ label, desc, checked, onChange }) => (
+  <div className="flex items-center justify-between gap-4">
     <div>
-      <label className="block text-slate-700 dark:text-gray-300 mb-2">{label}</label>
-      <select 
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        className="bg-slate-50 dark:bg-gray-700 border border-slate-300 dark:border-gray-600 text-slate-900 dark:text-white rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5"
-      >
-        {options.map((option, index) => (
-          <option key={index} value={option}>{option}</option>
-        ))}
-      </select>
+      <p className="text-sm font-bold text-white">{label}</p>
+      {desc && <p className="text-xs text-gray-500 mt-1">{desc}</p>}
     </div>
-  )
-}
+    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+      <input type="checkbox" className="sr-only peer" checked={checked} onChange={e => onChange?.(e.target.checked)} />
+      <div className="w-12 h-6 rounded-full bg-neutral-800 border border-white/5 peer-checked:bg-violet-600 peer-checked:border-violet-500 relative transition-all after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:w-5 after:h-5 after:rounded-full after:bg-gray-400 after:transition-all peer-checked:after:translate-x-[22px] peer-checked:after:bg-white" />
+    </label>
+  </div>
+);
 
-export default Settings
+const SettingSelect = ({ label, options, value, onChange }) => (
+  <div className="flex flex-col gap-2">
+    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">{label}</label>
+    <div className="relative">
+      <select value={value} onChange={e => onChange?.(e.target.value)}
+        className="appearance-none w-full bg-black/30 border border-white/[0.06] text-white text-sm font-medium rounded-xl px-4 pr-10 py-3 focus:border-violet-500/50 focus:outline-none transition-all">
+        {options.map(o => <option key={o} value={o} className="bg-neutral-900">{o}</option>)}
+      </select>
+      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-lg">unfold_more</span>
+    </div>
+  </div>
+);
+
+export default Settings;

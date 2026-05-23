@@ -1,8 +1,46 @@
 const express = require("express");
 const ContactMessage = require("../Models/contactMessage");
 
+/**
+ * @swagger
+ * tags:
+ *   name: Contact
+ *   description: Contact form management
+ */
+
 const router = express.Router();
 
+/**
+ * @swagger
+ * /contact:
+ *   post:
+ *     summary: Submit a contact form message
+ *     tags: [Contact]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - message
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               subject:
+ *                 type: string
+ *               message:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Message sent successfully
+ *       400:
+ *         description: Validation error
+ */
 router.post("/", async (req, res) => {
   const { name, email, subject, message } = req.body || {};
 

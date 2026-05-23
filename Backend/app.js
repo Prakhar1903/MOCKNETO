@@ -5,16 +5,70 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const cookieParser = require("cookie-parser");
+const rateLimit = require("express-rate-limit");
 const userRoutes = require("./Route/UserRoutes");
 const interviewRoutes = require("./Route/InterviewRoutes");
 const questionRoutes = require("./Route/QuestionRoutes");
 const contactRoutes = require("./Route/ContactRoutes");
 const errorMiddleware = require("./Middleware/errorMiddleware");
 const AppError = require("./Utils/AppError");
+const swaggerUi = require("swagger-ui-express");
+const swaggerJsdoc = require("swagger-jsdoc");
 
 const connectDB = require("./Connection/connection");
 
 const app = express();
+
+// Swagger Configuration
+const swaggerOptions = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+      title: "Mockneto API Documentation",
+      version: "1.0.0",
+      description: "API documentation for the Mockneto backend service.",
+    },
+    servers: [
+      {
+        url: "/api",
+        description: "Current environment",
+      },
+    ],
+    components: {
+      securitySchemes: {
+        cookieAuth: {
+          type: "apiKey",
+          in: "cookie",
+          name: "token",
+        },
+      },
+    },
+  },
+  apis: ["./Route/*.js"],
+};
+
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Rate Limiting
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again after 15 minutes",
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === "production" ? 10 : 1000, // relaxed for local testing
+  message: "Too many login attempts, please try again after 15 minutes",
+});
+
+app.use("/api", globalLimiter);
+app.use("/api/users/signup", authLimiter);
+app.use("/api/users/signin", authLimiter);
+
+app.use(cookieParser());
 
 // Allow OAuth popup flows (Google) to communicate via postMessage.
 app.use((req, res, next) => {

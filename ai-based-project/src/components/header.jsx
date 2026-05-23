@@ -1,13 +1,12 @@
 import React from "react";
 import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Profile from './Profile.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 
 const Header = () => {
   const [user, setUser] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
@@ -58,77 +57,90 @@ const Header = () => {
   }, [menuOpen]);
 
   return (
-    <>
-      <div className="bg-glow"></div>
+    <header className="fixed top-0 left-0 right-0 z-[1000] px-4 py-3 md:px-8">
+      <div className="mx-auto max-w-7xl">
+        <nav className="glass rounded-2xl px-6 py-3 flex items-center justify-between transition-all duration-300">
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform duration-300">
+              <span className="text-xl font-bold">M</span>
+            </div>
+            <span className="text-2xl font-bold tracking-tight text-foreground bg-clip-text">
+              Mockneto
+            </span>
+          </Link>
 
-      {menuOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-[998] md:hidden"
-          onClick={() => setMenuOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-
-      <div className={`header ${menuOpen ? 'menu-open' : ''}`}>
-        <div className="logo">
-          <h1>Mockneto</h1>
-        </div>
-
-        <div className="nav-right">
-          <button
-            type="button"
-            className="md:hidden inline-flex items-center justify-center rounded-lg px-3 py-2 border border-slate-200/20 dark:border-white/10 bg-white/10 text-slate-900 dark:text-white"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
-            <span className="text-sm font-semibold">Menu</span>
-          </button>
-
-          <div className="links">
-            <Link to="/" onClick={() => setMenuOpen(false)}>Home</Link>
-            <Link to="/dashboard" onClick={() => setMenuOpen(false)}>Practice Interview</Link>
-            <Link to="/interviewtips" onClick={() => setMenuOpen(false)}>Interview Tips</Link>
-            <Link to="/contactus" onClick={() => setMenuOpen(false)}>Contact Us</Link>
-            <Link to="/aboutus" onClick={() => setMenuOpen(false)}>About Us</Link>
+          <div className="hidden md:flex items-center gap-8">
+            {[
+              { name: 'Home', path: '/' },
+              { name: 'Practice', path: '/dashboard' },
+              { name: 'Tips', path: '/interviewtips' },
+              { name: 'Help', path: '/faq' },
+              { name: 'Contact', path: '/contactus' }
+            ].map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`text-sm font-semibold transition-all relative py-1 group ${location.pathname === item.path ? 'text-primary' : 'text-foreground/60 hover:text-foreground'
+                  }`}
+              >
+                {item.name}
+                <span className={`absolute bottom-0 left-0 w-full h-0.5 bg-primary transition-transform duration-300 origin-left ${location.pathname === item.path ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-50'
+                  }`}></span>
+              </Link>
+            ))}
           </div>
-          {user ? (
+
+          <div className="flex items-center gap-2 md:gap-4">
+            <ThemeToggle />
+            {user ? (
               <Profile />
-        ) : (
-          <div className="ftrial">
-            <Link to="/login">Login</Link>
+            ) : (
+              <Link
+                to="/login"
+                className="px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Get Started
+              </Link>
+            )}
+
+            <button
+              type="button"
+              className="md:hidden p-2 rounded-lg hover:bg-foreground/5 transition-colors"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="Toggle menu"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                {menuOpen ? <path d="M18 6L6 18M6 6l12 12" /> : <path d="M3 12h18M3 6h18M3 18h18" />}
+              </svg>
+            </button>
           </div>
-        )}
-        </div>
+        </nav>
       </div>
 
+      {/* Mobile Menu */}
       {menuOpen && (
-        <div className="fixed left-0 right-0 top-[var(--header-height)] z-[1000] md:hidden px-4 pb-4">
-          <div className="rounded-2xl border border-slate-200/20 dark:border-white/10 bg-white/90 dark:bg-[#0b0718]/90 backdrop-blur p-3 shadow-2xl max-h-[calc(100vh-var(--header-height)-16px)] overflow-auto">
+        <div className="fixed inset-x-4 top-[84px] z-[1001] md:hidden">
+          <div className="glass rounded-2xl p-4 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-300">
             <nav className="flex flex-col gap-2">
-              <Link className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white" to="/" onClick={() => setMenuOpen(false)}>Home</Link>
-              <Link className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white" to="/dashboard" onClick={() => setMenuOpen(false)}>Practice Interview</Link>
-              <Link className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white" to="/interviewtips" onClick={() => setMenuOpen(false)}>Interview Tips</Link>
-              <Link className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white" to="/contactus" onClick={() => setMenuOpen(false)}>Contact Us</Link>
-              <Link className="px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-slate-900 dark:text-white" to="/aboutus" onClick={() => setMenuOpen(false)}>About Us</Link>
-            </nav>
-
-            <div className="mt-3 pt-3 border-t border-slate-200/30 dark:border-white/10">
-              {user ? (
-                <Profile />
-              ) : (
+              <Link className="px-4 py-3 rounded-xl hover:bg-foreground/5 transition-colors font-medium" to="/" onClick={() => setMenuOpen(false)}>Home</Link>
+              <Link className="px-4 py-3 rounded-xl hover:bg-foreground/5 transition-colors font-medium" to="/dashboard" onClick={() => setMenuOpen(false)}>Practice</Link>
+              <Link className="px-4 py-3 rounded-xl hover:bg-foreground/5 transition-colors font-medium" to="/interviewtips" onClick={() => setMenuOpen(false)}>Interview Tips</Link>
+              <Link className="px-4 py-3 rounded-xl hover:bg-foreground/5 transition-colors font-medium" to="/faq" onClick={() => setMenuOpen(false)}>Help Center</Link>
+              <Link className="px-4 py-3 rounded-xl hover:bg-foreground/5 transition-colors font-medium" to="/contactus" onClick={() => setMenuOpen(false)}>Contact Us</Link>
+              {!user && (
                 <Link
-                  className="block text-center px-4 py-3 rounded-xl bg-gradient-to-r from-[#6648de] to-[#6a7ae7] text-white font-semibold"
+                  className="mt-2 block text-center px-4 py-4 rounded-xl bg-primary text-white font-bold shadow-lg"
                   to="/login"
                   onClick={() => setMenuOpen(false)}
                 >
-                  Login
+                  Get Started
                 </Link>
               )}
-            </div>
+            </nav>
           </div>
         </div>
       )}
-    </>
+    </header>
   );
 };
 

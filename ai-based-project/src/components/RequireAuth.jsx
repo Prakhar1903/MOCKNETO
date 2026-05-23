@@ -3,8 +3,8 @@ import { Navigate, useLocation } from "react-router-dom";
 
 const hasToken = () => {
   try {
-    const token = localStorage.getItem("token");
-    return !!String(token || "").trim();
+    const user = localStorage.getItem("user");
+    return !!String(user || "").trim();
   } catch {
     return false;
   }

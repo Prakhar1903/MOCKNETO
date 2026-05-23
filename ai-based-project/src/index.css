@@ -1,64 +1,218 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=Space+Grotesk:wght@400;500&display=swap');
 @custom-variant dark (&:where(.dark, .dark *));
 @import "tailwindcss";
 
-:root {
-  --radial-bg: radial-gradient(
-    ellipse at center,
-    rgba(99, 102, 241, 0.10) 0%,
-    rgba(236, 72, 153, 0.06) 40%,
-    rgba(15, 23, 42, 0.02) 100%
-  );
+@theme {
+  /* Color System */
+  --color-primary: hsl(255 72% 60%);
+  --color-primary-foreground: hsl(0 0% 100%);
+
+  --color-secondary: hsl(255 25% 96%);
+  --color-secondary-foreground: hsl(255 30% 15%);
+
+  --color-accent: hsl(265 76% 65%);
+  --color-accent-foreground: hsl(265 76% 20%);
+
+  --color-background: hsl(255 40% 99%);
+  --color-foreground: hsl(255 40% 10%);
+
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(255 40% 10%);
+
+  --color-border: hsl(255 20% 92%);
+  --color-input: hsl(255 20% 96%);
+  --color-ring: hsl(255 72% 60%);
+
+  --radius-xl: 1.25rem;
+
+  /* Glassmorphism Variables */
+  --glass-bg: hsla(0, 0%, 100%, 0.4);
+  --glass-border: hsla(255, 20%, 92%, 0.5);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+  --glass-blur: blur(12px);
+
+  /* Premium Gradients */
+  --mesh-gradient:
+    radial-gradient(at 0% 0%, hsla(255, 72%, 60%, 0.07) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, hsla(265, 76%, 65%, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(280, 72%, 60%, 0.07) 0px, transparent 50%);
 }
 
-.dark {
-  --radial-bg: radial-gradient(
-    ellipse at center,
-    rgba(123, 97, 255, 0.18) 0%,
-    rgba(17, 11, 35, 0.85) 60%,
-    rgba(10, 6, 27, 1) 100%
-  );
+@theme dark {
+  --color-background: hsl(255 45% 3%);
+  --color-foreground: hsl(255 20% 98%);
+
+  --color-card: hsl(255 30% 6%);
+  --color-card-foreground: hsl(255 20% 98%);
+
+  --color-primary: hsl(255 72% 65%);
+  --color-secondary: hsl(255 18% 10%);
+  --color-secondary-foreground: hsl(255 18% 98%);
+
+  --color-accent: hsl(265 76% 70%);
+  --color-accent-foreground: hsl(265 76% 95%);
+
+  --color-border: hsl(255 15% 12%);
+  --color-input: hsl(255 15% 10%);
+  --color-ring: hsl(255 72% 65%);
+
+  --glass-bg: hsla(255, 45%, 6%, 0.6);
+  --glass-border: hsla(255, 20%, 15%, 0.5);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+
+  --mesh-gradient:
+    radial-gradient(at 0% 0%, hsla(255, 85%, 60%, 0.12) 0px, transparent 50%),
+    radial-gradient(at 50% 0%, hsla(265, 90%, 65%, 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, hsla(280, 85%, 60%, 0.12) 0px, transparent 50%);
 }
 
-.radial-background {
-  background: var(--radial-bg);
+* {
+  border-color: var(--color-border);
 }
-/* body {
-  margin: 0;
-  padding: 0;
-  background: radial-gradient(
-    ellipse at center,
-    rgb(44, 27, 78) 0%,
-    #110b23 60%,
-    #0a061b 100%
-  );
-  color: white;
-  font-family: 'Montserrat', sans-serif;
-  min-height: 100vh;
+
+body {
+  background-color: var(--color-background);
+  background-image:
+    radial-gradient(at 0% 0%, color-mix(in srgb, var(--color-primary), transparent 95%) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, color-mix(in srgb, var(--color-accent), transparent 95%) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, color-mix(in srgb, var(--color-primary), transparent 98%) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: var(--color-foreground);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   position: relative;
   overflow-x: hidden;
-  overflow-y: auto; 
-  padding-top: 70px;
-} */
-.card-scroll-container {
-  display: flex; /* Lines up cards in a row */
-  overflow-x: auto; /* Enables horizontal scrolling */
-  gap: 1.5rem; /* Space between cards */
-  padding: 1rem 0.5rem; /* Adds some vertical padding */
+}
 
-  /* This makes scrolling smooth on touch devices */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    radial-gradient(circle at 20% 30%, color-mix(in srgb, var(--color-primary), transparent 98%), transparent 40%),
+    radial-gradient(circle at 80% 70%, color-mix(in srgb, var(--color-accent), transparent 98%), transparent 40%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--color-foreground);
+}
+
+@utility glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.1);
+}
+
+@utility glow-hover {
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+
+  &:hover {
+    box-shadow: 0 0 15px -5px color-mix(in srgb, var(--color-primary), transparent 85%);
+    border-color: color-mix(in srgb, var(--color-primary), transparent 80%);
+  }
+}
+
+@utility premium-card {
+  @apply glass rounded-[2.5rem] p-8 transition-all duration-500 overflow-hidden relative;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    inset 0 0 20px 0 rgba(255, 255, 255, 0.02);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary), transparent 85%), transparent);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  &:hover::before {
+    opacity: 1;
+  }
+}
+
+@utility text-premium-label {
+  @apply text-[10px] font-black uppercase tracking-[0.25em] text-foreground/20;
+}
+
+@utility active-glow {
+  box-shadow: 0 0 12px -4px color-mix(in srgb, var(--color-primary), transparent 70%);
+}
+
+@utility grid-overlay {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.03) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+@utility secondary-bg {
+  background-color: color-mix(in srgb, var(--color-background), white 2%);
+}
+
+/* Scroll Container Improvements */
+@utility card-scroll-container {
+  display: flex;
+  overflow-x: auto;
+  gap: 1.5rem;
+  padding: 1rem 0.5rem;
   -webkit-overflow-scrolling: touch;
-  
-  /* Hides the scrollbar for a cleaner look (optional) */
-  scrollbar-width: none; /* For Firefox */
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
-/* For Chrome, Safari, and Opera */
-.card-scroll-container::-webkit-scrollbar {
-  display: none; 
+@utility card-item {
+  flex: 0 0 320px;
+  height: auto;
 }
 
-/* Styles for the individual cards inside the scroll container */
-.card-item {
-  flex: 0 0 280px; /* Prevents cards from shrinking and sets a fixed width */
-  height: auto; /* Let the card's content determine its height */
+/* Hover Shine Effect */
+@utility shine-hover {
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(to bottom right,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.1) 40%,
+        rgba(255, 255, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0.1) 60%,
+        rgba(255, 255, 255, 0) 100%);
+    transform: rotate(45deg);
+    transition: transform 0.6s ease;
+    pointer-events: none;
+  }
+
+  &:hover::after {
+    transform: rotate(45deg) translate(20%, 20%);
+  }
 }

@@ -7,8 +7,12 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // Warm up backend ASAP (helps Render cold starts; reduces Google sign-in delay)
 try {
-  fetch('/api/health', { method: 'GET', cache: 'no-store' }).catch(() => {});
-} catch {}
+  fetch('/api/health', { method: 'GET', cache: 'no-store' }).catch(() => {
+    // Silent fail for health check warm-up
+  });
+} catch {
+  // Ignore error during warm-up
+}
 
 
 
