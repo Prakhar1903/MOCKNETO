@@ -1,184 +1,142 @@
-# 💻 Mockneto — Local Development Setup Guide
+# 🌐 Mockneto — How to Check & Run the Live App
 
-> Complete step-by-step from turning on your laptop to having both
-> Frontend and Backend running locally.
+> What to do after turning on your laptop to make sure the production
+> app is running at **https://d1r044vobuw5uv.cloudfront.net**
 
 ---
 
-## 🖥️ System Info
-| Item | Value |
+## 🔗 Live App URLs
+
+| What | URL |
 |---|---|
-| Node.js | v22.20.0 |
-| npm | 11.11.0 |
-| MongoDB | v8.0.21 (local) |
-| Frontend port | `http://localhost:5173` |
-| Backend port | `http://localhost:5600` |
+| 🌐 **Frontend (Live)** | https://d1r044vobuw5uv.cloudfront.net |
+| 🩺 **Backend Health** | http://13.60.193.71/api/health |
+| 🐙 **GitHub Actions** | https://github.com/Prakhar1903/MOCKNETO/actions |
 
 ---
 
-## ✅ One-Time Prerequisites
-> Only do this the **first time** on a new machine. Skip if already installed.
+## ✅ Step 1 — Check if App is Already Running
+
+Open your browser and go to:
+```
+http://13.60.193.71/api/health
+```
+
+**If you see this → everything is fine, nothing to do:**
+```json
+{"status":"OK","database":"Connected"}
+```
+
+**If the page doesn't load or shows an error → go to Step 2.**
+
+---
+
+## 🛠️ Step 2 — Restart the Backend (If It's Down)
+
+Open a terminal and SSH into the EC2 server:
 
 ```bash
-# 1. Install Node.js (v20+ recommended)
-# Download from: https://nodejs.org/en/download
-
-# 2. Install MongoDB locally
-# Ubuntu:
-sudo apt-get install -y mongodb
-# Or follow: https://www.mongodb.com/docs/manual/installation/
-
-# 3. Install nodemon globally (for backend hot-reload)
-npm install -g nodemon
+ssh -i ~/mockneto-key.pem ubuntu@13.60.193.71
 ```
 
----
-
-## 🚀 Every Time You Open Your Laptop — Full Startup Sequence
-
-### Step 1 — Start MongoDB (Local Database)
-Open a terminal and run:
-```bash
-sudo systemctl start mongod
-```
-
-Verify it's running:
-```bash
-sudo systemctl status mongod
-# Should say: Active: active (running)
-```
-
-> ⚠️ If you skip this step, the backend will fail to connect to the database.
-
----
-
-### Step 2 — Open the Project Folder
+Once inside the server, run:
 
 ```bash
-cd ~/Mockneto
+# Check if container is running
+docker ps
 ```
 
----
-
-### Step 3 — Start the Backend
-
-Open a **new terminal tab** (keep it open — don't close it):
+**If `mockneto-backend` is NOT in the list**, start it:
 
 ```bash
-cd ~/Mockneto/Backend
-npm run dev
+# Login to AWS container registry
+aws ecr get-login-password --region eu-north-1 | \
+  docker login --username AWS --password-stdin \
+  467397259363.dkr.ecr.eu-north-1.amazonaws.com
+
+# Start the container
+docker run -d \
+  --name mockneto-backend \
+  --restart unless-stopped \
+  -p 5600:5600 \
+  -e PORT=5600 \
+  -e NODE_ENV=production \
+  -e MONGODB_URI='mongodb+srv://admin_db_user:Mockneto2026@cluster0.kght3sk.mongodb.net/mockneto?retryWrites=true&w=majority&appName=Cluster0' \
+  -e JWT_SECRET='lets-go-to-boston' \
+  -e GEMINI_API_KEY='AIzaSyBB4LZZ2lLkFdy--EKm7yarOXzEswP2U88' \
+  -e GEMINI_MODEL='gemini-flash-latest' \
+  -e FRONTEND_ORIGIN='https://d1r044vobuw5uv.cloudfront.net' \
+  467397259363.dkr.ecr.eu-north-1.amazonaws.com/mockneto-backend:latest
 ```
 
-✅ You should see:
-```
-Server running on http://localhost:5600
-MongoDB connected successfully
-```
-
-> 💡 `npm run dev` uses **nodemon** which auto-restarts when you edit backend files.
-
----
-
-### Step 4 — Start the Frontend
-
-Open **another new terminal tab**:
-
+Wait 5 seconds, then verify:
 ```bash
-cd ~/Mockneto/ai-based-project
-npm run dev
-```
-
-✅ You should see:
-```
-  VITE v6.x.x  ready in xxx ms
-
-  ➜  Local:   http://localhost:5173/
-  ➜  Network: use --host to expose
-```
-
----
-
-### Step 5 — Open the App in Browser
-
-```
-http://localhost:5173
-```
-
----
-
-## 🗂️ Terminal Layout (Keep 2 tabs open)
-
-```
-Tab 1 (Backend):   cd ~/Mockneto/Backend && npm run dev
-Tab 2 (Frontend):  cd ~/Mockneto/ai-based-project && npm run dev
-```
-
----
-
-## 🔐 Backend Environment Variables
-
-File: `Backend/.env` — already configured, no changes needed for local dev.
-
-| Variable | Local Value |
-|---|---|
-| `PORT` | `5600` |
-| `MONGODB_URI` | `mongodb://localhost:27017/MOCKNETO` |
-| `JWT_SECRET` | `YOUR_JWT_SECRET` |
-| `GEMINI_API_KEY` | `YOUR_GEMINI_API_KEY` |
-| `FRONTEND_URL` | `http://localhost:5173` |
-
----
-
-## 🔄 Verify Everything is Working
-
-```bash
-# Check backend health
 curl http://localhost:5600/api/health
 # Expected: {"status":"OK","database":"Connected"}
 ```
 
-Then open `http://localhost:5173` → try **Login / Signup**.
+Exit the server:
+```bash
+exit
+```
 
 ---
 
-## 🛑 How to Stop Everything
+## 🔄 Step 3 — Deploy New Code Changes
+
+If you made code changes and want to push them live:
 
 ```bash
-# In Backend terminal:  Ctrl + C
-# In Frontend terminal: Ctrl + C
-# Stop MongoDB:
-sudo systemctl stop mongod
+cd ~/Mockneto
+git add .
+git commit -m "your message here"
+git push origin main
+```
+
+GitHub Actions will automatically:
+1. Build Docker image → push to AWS ECR
+2. SSH into EC2 → pull new image → restart container
+3. Build React → upload to S3 → refresh CloudFront
+
+Watch it run live:
+```
+https://github.com/Prakhar1903/MOCKNETO/actions
+```
+
+Takes about **2–3 minutes** to complete.
+
+---
+
+## 🩺 Quick Diagnostics
+
+```bash
+# SSH into EC2
+ssh -i ~/mockneto-key.pem ubuntu@13.60.193.71
+
+# See all containers (running or stopped)
+docker ps -a
+
+# See backend logs (last 30 lines)
+docker logs mockneto-backend --tail 30
+
+# Restart a stopped container
+docker start mockneto-backend
+
+# Check Nginx is running
+sudo systemctl status nginx
+
+# Restart Nginx if needed
+sudo systemctl restart nginx
 ```
 
 ---
 
-## 🐛 Troubleshooting
+## ❓ Common Situations
 
-| Problem | Fix |
+| Situation | What to do |
 |---|---|
-| `MongoDB connected failed` | Run `sudo systemctl start mongod` |
-| `Port 5600 already in use` | Run `lsof -ti:5600 \| xargs kill` |
-| `Port 5173 already in use` | Run `lsof -ti:5173 \| xargs kill` |
-| `Cannot find module` (Backend) | Run `cd Backend && npm install` |
-| `Cannot find module` (Frontend) | Run `cd ai-based-project && npm install` |
-| Changes not showing | Hard refresh browser: `Ctrl + Shift + R` |
-
----
-
-## 📁 Project Structure Quick Reference
-
-```
-Mockneto/
-├── Backend/              ← Node.js + Express API
-│   ├── app.js            ← Entry point (port 5600)
-│   ├── .env              ← Environment variables
-│   └── package.json      ← npm run dev / start
-│
-├── ai-based-project/     ← React + Vite Frontend
-│   ├── src/
-│   │   ├── api.jsx       ← Axios config (baseURL)
-│   │   └── ...
-│   └── package.json      ← npm run dev
-│
-└── LOCAL_SETUP.md        ← This file
-```
+| Frontend loads but login fails | Check `http://13.60.193.71/api/health` → restart container if down |
+| `docker ps` shows container but health fails | `docker logs mockneto-backend --tail 30` to see the error |
+| Container crashes immediately | MongoDB Atlas might be paused — log in to atlas.mongodb.com and resume cluster |
+| Want latest code live | `git push origin main` → wait 3 min → check GitHub Actions |
+| SSH key permission error | Run `chmod 400 ~/mockneto-key.pem` then try SSH again |
