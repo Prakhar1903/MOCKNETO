@@ -127,8 +127,8 @@ jobs:
       - name: 🏗️ Build React + Vite (Production)
         working-directory: ai-based-project
         env:
-          # Route API calls through CloudFront HTTPS → EC2 (avoids Mixed Content error)
-          VITE_API_BASE_URL: https://${{ secrets.CLOUDFRONT_DOMAIN }}/api/users
+          # Use relative path so requests automatically go to the CloudFront domain
+          VITE_API_BASE_URL: /api/users
         run: |
           npm run build
           echo "✅ Frontend built successfully!"
