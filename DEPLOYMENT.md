@@ -319,3 +319,252 @@ Mockneto/
 ├── LOCAL_SETUP.md            ← Local dev guide
 └── DEPLOYMENT.md             ← This file
 ```
+
+---
+
+---
+
+## 🎓 Viva / PPT — Key Definitions
+
+> Memorize these. These are the exact definitions your professor will ask about.
+
+---
+
+### 🐳 Docker
+**Definition:** Docker is a containerization platform that packages an application and all its dependencies (Node.js, libraries, config) into a single portable unit called a **container**, so it runs identically on any machine.
+
+**What we did:** We wrote a `Dockerfile` that packages the Mockneto backend into a container image. This image is stored in ECR and deployed on EC2.
+
+**Key terms:**
+- **Image** — A blueprint/snapshot of the app (like a class)
+- **Container** — A running instance of an image (like an object)
+- **Dockerfile** — Instructions to build the image
+- **ECR** — AWS registry to store images
+
+---
+
+### 🔄 CI/CD (Continuous Integration / Continuous Deployment)
+**Definition:** CI/CD is an automated pipeline that builds, tests, and deploys your application every time code is pushed to GitHub — removing the need to deploy manually.
+
+**What we did:** We wrote `.github/workflows/deploy.yml` — a GitHub Actions pipeline that:
+- **CI:** Automatically builds the Docker image on every `git push`
+- **CD:** Pushes to ECR → SSHs into EC2 → restarts container → builds frontend → uploads to S3 → clears CloudFront cache
+
+**Key terms:**
+- **Pipeline** — A series of automated steps
+- **Trigger** — What starts the pipeline (`git push` to `main`)
+- **Job** — A group of steps (we have 2: backend deploy, frontend deploy)
+- **GitHub Actions** — The CI/CD platform (free, built into GitHub)
+
+---
+
+### ☁️ AWS EC2 (Elastic Compute Cloud)
+**Definition:** EC2 is a virtual server (cloud computer) provided by AWS. You rent it by the hour and run any application on it.
+
+**What we did:** Launched a `t2.micro` Ubuntu server in `eu-north-1` (Stockholm). Our Node.js backend Docker container runs on this server behind Nginx.
+
+**Key terms:**
+- **Instance** — A single virtual server
+- **t2.micro** — Size (1 vCPU, 1GB RAM — Free Tier)
+- **AMI** — The OS image used (Ubuntu 22.04)
+- **Security Group** — Virtual firewall controlling which ports are open
+- **Key Pair (.pem)** — SSH login credentials
+
+---
+
+### 📦 AWS ECR (Elastic Container Registry)
+**Definition:** ECR is AWS's private Docker image registry — like Docker Hub but hosted inside AWS. It stores our backend Docker images securely.
+
+**What we did:** CI/CD builds the Docker image and pushes it to ECR (`mockneto-backend`). The EC2 server pulls the latest image from ECR on each deployment.
+
+---
+
+### 🌐 AWS S3 (Simple Storage Service)
+**Definition:** S3 is cloud object storage. We use it to host the React frontend as static files (HTML, CSS, JS).
+
+**What we did:** After `npm run build`, CI/CD uploads the `dist/` folder to S3. S3 serves these files to CloudFront.
+
+**Key terms:**
+- **Bucket** — A container for files (like a folder in the cloud)
+- **Static website hosting** — Serving HTML/JS/CSS directly from S3
+- **Object** — Any file stored in S3
+
+---
+
+### 🌍 AWS CloudFront (CDN)
+**Definition:** CloudFront is a Content Delivery Network (CDN). It caches your files at servers around the world (Edge Locations) so users get fast load times from anywhere.
+
+**What we did:** CloudFront sits in front of both S3 (frontend) and EC2 (API). All production traffic goes through `https://d1r044vobuw5uv.cloudfront.net`. We configured two origins:
+- `/api/*` → routes to EC2 (backend)
+- `/*` → routes to S3 (frontend)
+
+**Key terms:**
+- **CDN** — Network of servers caching content closer to users
+- **Edge Location** — A CloudFront server near the user
+- **Cache Invalidation** — Clearing old cached files after new deployment
+- **Origin** — Where CloudFront fetches real content from (S3 or EC2)
+- **Distribution** — A single CloudFront configuration
+
+---
+
+### 🔀 Nginx (Reverse Proxy)
+**Definition:** Nginx is a web server used here as a **reverse proxy** — it sits in front of our Node.js app, receives all HTTP requests on port 80, and forwards them to the Docker container on port 5600.
+
+**What we did:** Nginx is installed on EC2. Every request to `http://13.60.193.71` is proxied by Nginx to `http://localhost:5600`.
+
+**Why reverse proxy?**
+- Hides the backend port from public internet
+- Handles load balancing
+- Adds timeouts (we set 120s for slow Gemini AI responses)
+
+---
+
+### 🔐 IAM (Identity and Access Management)
+**Definition:** IAM is AWS's permission system — it controls who can do what in your AWS account.
+
+**What we did:** Created IAM user `mockneto-deployer` with only the permissions needed for CI/CD (ECR push, S3 upload, CloudFront invalidation). Its Access Key is stored in GitHub Secrets.
+
+**Principle used:** **Least Privilege** — give only the minimum permissions needed, nothing more.
+
+---
+
+### 🔑 GitHub Secrets
+**Definition:** Encrypted environment variables stored in a GitHub repository. Injected into CI/CD workflows at runtime — never visible in code.
+
+**What we did:** Stored AWS keys, MongoDB URI, SSH key, JWT secret as GitHub Secrets so the pipeline can use them safely.
+
+---
+
+### 🍃 MongoDB Atlas
+**Definition:** A fully managed cloud database service. Handles backups, scaling, and security automatically — no need to install or maintain MongoDB on the server.
+
+**What we did:** Backend connects to Atlas using a connection URI. The `mockneto` database runs in Atlas, completely separate from the app server.
+
+---
+
+### 🏗️ Infrastructure as Code (IaC)
+**Definition:** Managing servers and infrastructure using code/config files instead of manual clicks in a web console.
+
+**What we did:** `Dockerfile`, `docker-compose.yml`, `nginx.conf`, `ec2-setup.sh`, and `deploy.yml` together define our entire infrastructure as code — anyone can recreate the deployment from scratch using just these files.
+
+---
+
+---
+
+## 💻 Important Commands — Live Demo for Presentation
+
+> Run these live during your presentation to impress your professor.
+
+---
+
+### ✅ Show the Live Backend is Running
+```bash
+curl http://13.60.193.71/api/health
+```
+**Expected:**
+```json
+{"status":"OK","database":"Connected"}
+```
+
+---
+
+### 🔐 SSH into the Production Server
+```bash
+ssh -i ~/mockneto-key.pem ubuntu@13.60.193.71
+```
+
+---
+
+### 🐳 Show Running Docker Container
+```bash
+# After SSH into EC2:
+docker ps
+```
+Shows: `mockneto-backend` container, uptime, port `0.0.0.0:5600->5600`
+
+---
+
+### 📜 Show Live Backend Logs
+```bash
+# After SSH into EC2:
+docker logs mockneto-backend --tail 20
+```
+Shows: Real-time server logs — requests, MongoDB connection, Gemini API calls
+
+---
+
+### 🏗️ Show Docker Images in ECR
+```bash
+# After SSH into EC2:
+aws ecr list-images --repository-name mockneto-backend --region eu-north-1
+```
+Shows: All Docker images stored in the private registry with commit SHA tags
+
+---
+
+### 🚀 Trigger a Live Deployment (Most Impressive)
+```bash
+# On your laptop:
+cd ~/Mockneto
+git commit --allow-empty -m "demo: live deployment"
+git push origin main
+```
+Then open: `https://github.com/Prakhar1903/MOCKNETO/actions`
+
+Shows: CI/CD pipeline running live — build → ECR push → EC2 deploy → S3 upload → CloudFront cache invalidation
+
+---
+
+### ☁️ Show Files in S3 Bucket
+```bash
+aws s3 ls s3://mockneto-frontend-prakhar/assets/ --profile mockneto --region eu-north-1
+```
+Shows: All frontend files (JS bundle, CSS, images) hosted in S3
+
+---
+
+### 🌍 Show CloudFront Distribution Status
+```bash
+aws cloudfront get-distribution --id E2NXR1MQBZCMQV --profile mockneto \
+  --query 'Distribution.{Status:Status,Domain:DomainName}'
+```
+Shows: `"Status": "Deployed"`, `"Domain": "d1r044vobuw5uv.cloudfront.net"`
+
+---
+
+### 📊 Show EC2 Server Resource Usage
+```bash
+# After SSH into EC2:
+free -h                                           # RAM usage
+df -h                                             # Disk usage
+docker stats mockneto-backend --no-stream         # Container CPU & RAM live
+```
+
+---
+
+---
+
+## ❓ Expected Viva Questions & Answers
+
+| Question | Short Answer |
+|---|---|
+| **What is Docker?** | Packages app + dependencies into a container that runs identically anywhere |
+| **What is CI/CD?** | Automated pipeline that builds and deploys on every `git push` |
+| **What triggers your pipeline?** | `git push` to the `main` branch on GitHub |
+| **Where is your backend running?** | Docker container on AWS EC2 `t2.micro` in `eu-north-1` |
+| **Where is your frontend hosted?** | AWS S3 bucket, delivered globally via CloudFront CDN |
+| **What is Nginx doing here?** | Reverse proxy — receives traffic on port 80, forwards to Docker on port 5600 |
+| **Why CloudFront?** | CDN for fast global delivery + HTTPS + routes `/api/*` to EC2 |
+| **Why MongoDB Atlas?** | Managed cloud DB — no need to install/maintain MongoDB on the server |
+| **What are GitHub Secrets?** | Encrypted env variables used by CI/CD without exposing in code |
+| **What is ECR?** | AWS private Docker image registry — stores our built container images |
+| **What is Least Privilege?** | IAM principle — give only minimum permissions needed, nothing extra |
+| **How do you deploy new code?** | Just `git push origin main` — pipeline handles everything automatically |
+| **What if the container crashes?** | `--restart unless-stopped` flag makes Docker auto-restart it |
+| **What is a reverse proxy?** | A server that receives requests and forwards them to the actual backend app |
+| **How do you verify app is live?** | `curl http://13.60.193.71/api/health` → `{"status":"OK","database":"Connected"}` |
+| **What is an EC2 Security Group?** | Virtual firewall that controls inbound/outbound traffic by port |
+| **What is S3?** | AWS object storage — we use it to host React static files (HTML, CSS, JS) |
+| **What is cache invalidation?** | Telling CloudFront to delete old cached files so users get the new version |
+| **What is Infrastructure as Code?** | Defining servers and config as code files instead of manual console clicks |
+| **What is the difference between image and container?** | Image = blueprint (static), Container = running instance of that image |
