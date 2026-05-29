@@ -11,7 +11,7 @@ import Profile from './Pages/Profile.jsx';
 import Settings from './Pages/Settings.jsx';
 import QuestionBank from './Pages/QuestionBank.jsx';
 import Faq from './Pages/Faq.jsx';
-import { createBrowserRouter, RouterProvider, Outlet } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Outlet, useLocation } from 'react-router-dom';
 
 import "./App.css";
 import Dashboard from './Pages/Dashboard.jsx';
@@ -20,11 +20,30 @@ import ChatInterview from './Pages/ChatInterview.jsx';
 import VideoInterview from './Pages/VideoInterview.jsx';
 import VoiceInterview from './Pages/VoiceInterview.jsx';
 import Questions from './Pages/Questions.jsx';
+import Leaderboard from './Pages/Leaderboard.jsx';
+import ForgotPassword from './Pages/ForgotPassword.jsx';
+import ResetPassword from './Pages/ResetPassword.jsx';
+import VerifyEmail from './Pages/VerifyEmail.jsx';
+import Pricing from './Pages/Pricing.jsx';
 import { Privacy, Terms, Cookies, GDPR } from './Pages/LegalPage.jsx';
 import { ThemeProvider } from './context/ThemeContext.jsx';
+import { UserGoalProvider } from './context/UserGoalContext.jsx';
 import RequireAuth from './components/RequireAuth.jsx';
 import MainLayout from './components/MainLayout.jsx';
 import DashboardLayout from './components/DashboardLayout.jsx';
+import Onboarding from './Pages/Onboarding.jsx';
+import ChangeGoal from './Pages/ChangeGoal.jsx';
+import DSACodingRound from './Pages/DSACodingRound.jsx';
+import InterviewReplay from './Pages/InterviewReplay.jsx';
+import SessionDetail from './Pages/SessionDetail.jsx';
+
+function Root() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return <Outlet />;
+}
 
 function App() {
   // Warm up Render backend as soon as someone opens the frontend.
@@ -60,7 +79,10 @@ function App() {
   }, []);
 
   const router = createBrowserRouter([
-    // ── Public pages (with standard Header/Footer) ──────────────────────────
+    {
+      element: <Root />,
+      children: [
+        // ── Public pages (with standard Header/Footer) ──────────────────────────
     {
       element: <MainLayout />,
       children: [
@@ -82,9 +104,17 @@ function App() {
       path: "/login",
       element: <><Header /><Login /></>
     },
+    { path: "/forgot-password", element: <ForgotPassword /> },
+    { path: "/reset-password",  element: <ResetPassword /> },
+    { path: "/verify-email",    element: <VerifyEmail /> },
+    // ── Onboarding — authenticated but outside DashboardLayout ──────────────
+    {
+      path: "/onboarding",
+      element: <RequireAuth><UserGoalProvider><Onboarding /></UserGoalProvider></RequireAuth>
+    },
     // ── All authenticated app pages share DashboardLayout (one nav) ─────────
     {
-      element: <RequireAuth><DashboardLayout /></RequireAuth>,
+      element: <RequireAuth><UserGoalProvider><DashboardLayout /></UserGoalProvider></RequireAuth>,
       children: [
         { path: "/dashboard",        element: <Dashboard /> },
         { path: "/reports",          element: <Reports /> },
@@ -96,8 +126,16 @@ function App() {
         { path: "/chat-interview",   element: <ChatInterview /> },
         { path: "/video-interview",  element: <VideoInterview /> },
         { path: "/voice-interview",  element: <VoiceInterview /> },
+        { path: "/leaderboard",      element: <Leaderboard /> },
+        { path: "/pricing",          element: <Pricing /> },
+        { path: "/change-goal",      element: <ChangeGoal /> },
+        { path: "/dsa-round",        element: <DSACodingRound /> },
+        { path: "/interview-replay", element: <InterviewReplay /> },
+        { path: "/session/:id",      element: <SessionDetail /> },
       ]
-    },
+    }
+      ]
+    }
   ])
   return (
     <ThemeProvider>

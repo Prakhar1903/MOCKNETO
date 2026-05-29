@@ -186,3 +186,124 @@ exports.updateUser = async (userId, updateData) => {
         throw error;
     }
 };
+
+const nodemailer = require("nodemailer");
+
+// --- Mail Transport ---
+const transporter = nodemailer.createTransport({
+    host: process.env.MAILTRAP_HOST || "sandbox.smtp.mailtrap.io",
+    port: process.env.MAILTRAP_PORT || 2525,
+    auth: {
+        user: process.env.MAILTRAP_USER,
+        pass: process.env.MAILTRAP_PASS
+    }
+});
+
+const sendEmail = async (to, subject, text, html) => {
+    try {
+        await transporter.sendMail({
+            from: '"Mockneto Support" <noreply@mockneto.com>',
+            to,
+            subject,
+            text,
+            html,
+        });
+    } catch (error) {
+        console.error("Error sending email:", error);
+    }
+};
+
+exports.updateStreak = async (userId) => {
+    const user = await User.findById(userId);
+    if (!user) return null;
+
+    const today = new Date().toDateString();
+    const lastDate = user.streak && user.streak.lastActivityDate
+        ? new Date(user.streak.lastActivityDate).toDateString()
+        : null;
+
+    if (lastDate === today) return user; // Already counted today
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (lastDate === yesterday.toDateString()) {
+        user.streak.current += 1;
+    } else {
+        user.streak.current = 1;
+    }
+
+    user.streak.longest = Math.max(user.streak.current, user.streak.longest || 0);
+    user.streak.lastActivityDate = new Date();
+    user.totalSessions = (user.totalSessions || 0) + 1;
+
+    return user.save();
+};
+
+exports.forgotPassword = async (email) => {
+    const user = await User.findOne({ Email: email });
+    if (!user) {
+        // Return silently to prevent email enumeration
+        return { message: "If that email is registered, a reset link was sent." };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+    user.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // 10 mins
+    await user.save({ validateBeforeSave: false });
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    const message = `Forgot your password? Reset it here: ${resetUrl}\nIf you didn't forget your password, ignore this email.`;
+    await sendEmail(user.Email, "Your Password Reset Token (Valid for 10 min)", message, `<p>Forgot your password? <a href="${resetUrl}">Click here to reset it</a>.</p><p>If you didn't forget your password, please ignore this email.</p>`);
+
+    return { message: "If that email is registered, a reset link was sent." };
+};
+
+exports.resetPassword = async (token, newPassword) => {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+        throw new AppError("Token is invalid or has expired", 400);
+    }
+
+    user.Password = await bcrypt.hash(String(newPassword), 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return { message: "Password updated successfully" };
+};
+
+exports.sendVerificationEmail = async (user) => {
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    user.emailVerifyToken = crypto.createHash('sha256').update(verifyToken).digest('hex');
+    await user.save({ validateBeforeSave: false });
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const verifyUrl = `${frontendUrl}/verify-email?token=${verifyToken}`;
+
+    const message = `Please verify your email address by clicking here: ${verifyUrl}`;
+    await sendEmail(user.Email, "Verify Your Mockneto Account", message, `<p>Welcome to Mockneto! Please verify your email by <a href="${verifyUrl}">clicking here</a>.</p>`);
+};
+
+exports.verifyEmail = async (token) => {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({ emailVerifyToken: hashedToken });
+    if (!user) {
+        throw new AppError("Token is invalid", 400);
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerifyToken = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    return { message: "Email verified successfully" };
+};

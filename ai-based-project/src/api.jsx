@@ -12,6 +12,20 @@ const API = axios.create({
   timeout: 30000,
 });
 
+// Request interceptor to attach bearer token
+API.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 // Response interceptor
 API.interceptors.response.use(
   (response) => {

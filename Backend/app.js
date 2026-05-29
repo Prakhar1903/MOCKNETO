@@ -11,6 +11,7 @@ const userRoutes = require("./Route/UserRoutes");
 const interviewRoutes = require("./Route/InterviewRoutes");
 const questionRoutes = require("./Route/QuestionRoutes");
 const contactRoutes = require("./Route/ContactRoutes");
+const dsaRoutes = require("./Route/DSARoutes");
 const errorMiddleware = require("./Middleware/errorMiddleware");
 const AppError = require("./Utils/AppError");
 const swaggerUi = require("swagger-ui-express");
@@ -110,6 +111,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/interview", interviewRoutes);
 app.use("/api/questions", questionRoutes);
 app.use("/api/contact", contactRoutes);
+app.use("/api/dsa", dsaRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {

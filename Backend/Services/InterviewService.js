@@ -9,6 +9,8 @@ const { callGeminiText } = require("../ai/gemini");
 const {
     generateFallbackQuestions,
     evaluateFallback,
+    evaluateSingleAnswerFallback,
+    evaluateSessionFeedbackFallback,
 } = require("../ai/fallback");
 const { getQuestionBank } = require("../ai/questionBank");
 const {
@@ -283,14 +285,107 @@ exports.getQuestions = async (body) => {
         };
 
         const qBank = questionService.QUESTIONS;
-        const dsa = Array.isArray(qBank["dsa-java"]) ? qBank["dsa-java"] : [];
-        const node = Array.isArray(qBank.node) ? qBank.node : [];
-        const express = Array.isArray(qBank.express) ? qBank.express : [];
+        const roleLower = String(jobRole || "").toLowerCase();
 
-        const pool = [...dsa, ...node, ...express];
+        // Dynamically build the pool based on the jobRole keywords
+        let matchedCategories = [];
+        if (roleLower.includes("react") || roleLower.includes("frontend") || roleLower.includes("web") || roleLower.includes("html") || roleLower.includes("css")) {
+            matchedCategories.push("react", "javascript", "html", "css");
+        }
+        if (roleLower.includes("node") || roleLower.includes("express") || roleLower.includes("backend")) {
+            matchedCategories.push("node", "express", "javascript");
+        }
+        if (roleLower.includes("python")) {
+            matchedCategories.push("python");
+        }
+        if (roleLower.includes("devops") || roleLower.includes("cloud") || roleLower.includes("infra")) {
+            matchedCategories.push("devops");
+        }
+        if (roleLower.includes("ml") || roleLower.includes("machine learning") || roleLower.includes("data science") || roleLower.includes("ai")) {
+            matchedCategories.push("ai-ml", "ai-integration");
+        }
+        if (roleLower.includes("java") || roleLower.includes("dsa") || roleLower.includes("algorithm")) {
+            matchedCategories.push("dsa-java");
+        }
+
+        // If no categories matched, fallback to matching any key directly
+        if (matchedCategories.length === 0) {
+            for (const key of Object.keys(qBank)) {
+                if (roleLower.includes(key)) {
+                    matchedCategories.push(key);
+                }
+            }
+        }
+        // If still empty, default to general software engineering categories
+        if (matchedCategories.length === 0) {
+            matchedCategories.push("dsa-java", "javascript", "node");
+        }
+
+        // Gather all questions from matched categories
+        let pool = [];
+        for (const cat of matchedCategories) {
+            if (Array.isArray(qBank[cat])) {
+                pool.push(...qBank[cat]);
+            }
+        }
+
+        // If the pool is empty for some reason, fallback to all technical questions
+        if (pool.length === 0) {
+            pool = [
+                ...(Array.isArray(qBank["dsa-java"]) ? qBank["dsa-java"] : []),
+                ...(Array.isArray(qBank.javascript) ? qBank.javascript : []),
+                ...(Array.isArray(qBank.node) ? qBank.node : []),
+                ...(Array.isArray(qBank.express) ? qBank.express : []),
+            ];
+        }
+
         const questions = pickUnique(shuffleInPlace(pool), safeCount, used);
-
         return { source: "topic-bank", questions };
+    }
+
+// ── Resume-based 50/50 hybrid questions ─────────────────────────────────────
+    if (body.useResumeQuestions && body.resumeText && String(body.resumeText).trim().length > 100) {
+        const safeCount = Number.isFinite(Number(count)) ? Number(count) : 5;
+        const resumeCount = Math.ceil(safeCount / 2);
+        const standardCount = Math.floor(safeCount / 2);
+
+        let resumeQs = [];
+        let standardQs = [];
+
+        // Fetch resume-personalized questions
+        try {
+            const { buildResumeQuestionsPrompt } = require("../ai/prompts");
+            const rPrompt = buildResumeQuestionsPrompt({
+                resumeText: body.resumeText,
+                jobRole: body.jobRole || "Software Engineer",
+                level: body.level || "mid",
+                count: resumeCount,
+            });
+            const rAI = await callGeminiText({ prompt: rPrompt, temperature: 0.6, maxOutputTokens: 800 });
+            if (rAI.ok && rAI.text) {
+                resumeQs = normalizeLines(rAI.text).slice(0, resumeCount);
+            }
+        } catch (err) {
+            console.error("Resume question generation failed:", err.message);
+        }
+
+        // Fetch standard questions for the role
+        try {
+            const sPrompt = buildQuestionPrompt({ ...body, count: standardCount, useResumeQuestions: false });
+            const sAI = await callGeminiText({ prompt: sPrompt, temperature: 0.5, maxOutputTokens: 600 });
+            if (sAI.ok && sAI.text) {
+                standardQs = normalizeLines(sAI.text).slice(0, standardCount);
+            }
+        } catch (err) {
+            // If standard questions also fail, fall through to fallback below
+        }
+
+        // If resume extraction succeeded enough, return the blend
+        const blended = [...resumeQs, ...standardQs];
+        if (blended.length >= 2) {
+            return { source: "resume-hybrid", questions: blended };
+        }
+        // Otherwise fall through to standard question generation below
     }
 
     const prompt = buildQuestionPrompt(body);
@@ -368,32 +463,107 @@ exports.checkAnswer = async (body) => {
         console.error("AI checkAnswer service error:", err);
     }
 
-    const fallback = evaluateFallback({ qa: [{ question, answer }] });
+    const fallback = evaluateSingleAnswerFallback({ question, answer });
     return {
         source: "fallback",
         ...fallback,
-        verdict: fallback.score >= 5 ? "Okay" : "Weak",
         resources,
         improvedAnswer: sampleAnswer,
     };
 };
 
+// Helper: Extract score from text
+const extractScore = (text) => {
+    const match = String(text || "").match(/Score:\s*(\d+)\/10/i);
+    if (match) {
+        return parseInt(match[1], 10);
+    }
+    return 5;
+};
+
+// Core Business Logic: Get Session Feedback
+exports.getFeedback = async (body) => {
+    const { track, focusArea, questions, answers, mbaSpecialization } = body;
+    const qa = (questions || []).map((q, idx) => ({
+        question: q,
+        answer: answers[idx] || "",
+    }));
+    
+    const answeredCount = (answers || []).filter(a => String(a || "").trim()).length;
+    if (answeredCount === 0) {
+        return {
+            score: 0,
+            feedback: "Score: 0/10\n\nNo answers were provided during this session. Please participate and answer the questions to receive detailed feedback.",
+        };
+    }
+
+    const prompt = buildFeedbackPrompt({ ...body, qa });
+    try {
+        const ai = await callGeminiText({ prompt, temperature: 0.5, maxOutputTokens: 1000 });
+        if (ai.ok && ai.text) {
+            return {
+                score: extractScore(ai.text),
+                feedback: ai.text,
+            };
+        }
+    } catch (err) {
+        console.error("AI getFeedback service error:", err);
+    }
+
+    const fallback = evaluateSessionFeedbackFallback({ qa });
+    return {
+        score: fallback.score,
+        feedback: fallback.feedback,
+    };
+};
+
 // Core Business Logic: Get History
 exports.getHistory = async (userId) => {
-    return await HistoryModel.find({ userId })
+    const history = await HistoryModel.find({ userId })
         .sort({ date: -1 })
-        .limit(MAX_HISTORY);
+        .limit(MAX_HISTORY * 2);
+
+    // Filter out incomplete "demo" sessions
+    const validHistory = history.filter(session => {
+        if (session.dsaMode) {
+            return session.userCode && session.userCode.trim().length > 0;
+        }
+        if (!session.questions || session.questions.length === 0) {
+            // Support legacy sessions that didn't use the 'questions' array but have a score
+            return session.score > 0 || (session.overallFeedback && session.overallFeedback.trim().length > 0);
+        }
+        
+        const answeredCount = session.questions.filter(q => q.answerText && q.answerText.trim().length > 0).length;
+        return answeredCount > 0;
+    });
+
+    return validHistory.slice(0, MAX_HISTORY);
 };
 
 // Core Business Logic: Save History
 exports.saveHistory = async (userId, data) => {
+    // Enforce that only fully completed/attempted sessions are saved
+    if (!data.dsaMode) {
+        if (!data.questions || data.questions.length === 0) {
+            return { ok: false, error: "Incomplete session: No questions" };
+        }
+        const answeredCount = data.questions.filter(q => q.answerText && q.answerText.trim().length > 0).length;
+        if (answeredCount === 0) {
+            return { ok: false, error: "Incomplete session: No answers provided" };
+        }
+    } else {
+        if (!data.userCode || data.userCode.trim().length === 0) {
+            return { ok: false, error: "Incomplete session: No code provided" };
+        }
+    }
+
     const history = new HistoryModel({
         userId,
         ...data,
         date: normalizeDate(data.date),
     });
     await history.save();
-    return { ok: true };
+    return { ok: true, id: history._id };
 };
 
 // Core Business Logic: Clear History

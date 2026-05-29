@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext.jsx';
+import { useUserGoal } from '../context/UserGoalContext.jsx';
 import API from '../api.jsx';
 import { motion } from 'framer-motion';
 
@@ -25,7 +27,9 @@ function saveSettings(s) {
 }
 
 const Settings = () => {
+  const navigate = useNavigate();
   const { theme, setTheme, resolvedTheme } = useTheme();
+  const { goal, clearOnboarding } = useUserGoal();
   const [settings, setSettings] = useState(() => loadSettings());
   const [message, setMessage] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -151,6 +155,42 @@ const Settings = () => {
           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500 mb-6">Notifications</p>
           <SettingToggle label="Email Alerts" desc="Weekly digests and interview reminders."
             checked={!!settings.emailNotifications} onChange={v => setSettings(s => ({ ...s, emailNotifications: v }))} />
+        </motion.div>
+
+        {/* Goal & Preferences — full width */}
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}
+          className="lg:col-span-3 rounded-3xl bg-[#111111] border border-violet-500/10 p-8">
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-gray-500">Goal &amp; Preferences</p>
+            <button onClick={() => navigate('/change-goal')}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600/15 border border-violet-500/20 text-violet-400 text-[10px] font-black hover:bg-violet-600/25 transition-all active:scale-95">
+              <span className="material-symbols-outlined text-xs">edit</span> Update My Goal
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {[
+              { label: 'Target Role', value: goal?.targetRole || '—' },
+              { label: 'Experience', value: goal?.experienceLevel || '—' },
+              { label: 'Interview Date', value: goal?.interviewDate || '—' },
+            ].map(item => (
+              <div key={item.label} className="p-4 rounded-2xl bg-black/30 border border-white/5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 mb-1">{item.label}</p>
+                <p className="text-sm font-bold text-white">{item.value}</p>
+              </div>
+            ))}
+          </div>
+          {goal?.companies?.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-6">
+              {goal.companies.map(c => (
+                <span key={c} className="px-3 py-1 rounded-lg bg-violet-500/15 border border-violet-500/20 text-violet-300 text-[10px] font-bold">{c}</span>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => { clearOnboarding(); navigate('/onboarding'); }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:text-white hover:border-white/20 transition-all active:scale-95">
+            <span className="material-symbols-outlined text-sm">refresh</span> Re-run Full Onboarding
+          </button>
         </motion.div>
 
         {/* Danger Zone — full width */}

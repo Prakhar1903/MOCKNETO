@@ -55,6 +55,29 @@ const HistorySchema = new mongoose.Schema(
         score: {
             type: Number,
         },
+        // DSA Coding Round fields
+        dsaMode: { type: Boolean, default: false },
+        dsaProblem: { type: String, default: "", trim: true },
+        userCode: { type: String, default: "", trim: true },
+        language: { type: String, default: "", trim: true },
+        testsPassed: { type: Number },
+        testsTotal: { type: Number },
+        codeScore: { type: Number },
+        // New fields for structured session review
+        interviewer: { type: String, default: "" },
+        duration: { type: Number },
+        overallFeedback: { type: String, default: "" },
+        studyRecommendations: [{ type: String }],
+        questions: [{
+            questionText: { type: String, required: true },
+            answerText: { type: String, default: "" },
+            verdict: { type: String, default: "" },
+            aiFeedback: { type: String, default: "" },
+            score: { type: Number },
+            improvedAnswer: { type: String, default: "" },
+        }],
+        startedAt: { type: Date },
+        endedAt: { type: Date },
     },
     {
         timestamps: true,
@@ -62,5 +85,8 @@ const HistorySchema = new mongoose.Schema(
 );
 
 const HistoryModel = mongoose.model("History", HistorySchema);
+
+// Compound index for fast percentile queries (rolling 7-day window by track/focusArea)
+HistorySchema.index({ track: 1, focusArea: 1, date: -1, score: 1 });
 
 module.exports = HistoryModel;

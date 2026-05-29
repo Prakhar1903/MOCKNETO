@@ -137,7 +137,65 @@ router.post("/feedback", interviewController.getFeedback);
  *         description: Unauthorized
  */
 router.get("/history", interviewController.getHistory);
+router.get("/history/:id", interviewController.getSessionById);
 router.post("/history", interviewController.saveHistory);
 router.delete("/history", interviewController.clearHistory);
+
+router.get("/leaderboard", interviewController.getLeaderboard);
+
+/**
+ * @swagger
+ * /interview/percentile:
+ *   get:
+ *     summary: Get anonymous peer comparison percentile (rolling 7-day window)
+ *     tags: [Interviews]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: score
+ *         schema:
+ *           type: number
+ *         required: true
+ *       - in: query
+ *         name: track
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: focusArea
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Percentile data or "not enough data" response
+ */
+router.get("/percentile", interviewController.getPercentile);
+
+/**
+ * @swagger
+ * /interview/replay-commentary:
+ *   post:
+ *     summary: Get AI coaching commentary for a completed session (batch)
+ *     tags: [Interviews]
+ *     security:
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - pairs
+ *             properties:
+ *               pairs:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *     responses:
+ *       200:
+ *         description: Commentary array
+ */
+router.post("/replay-commentary", interviewController.replayCommentary);
 
 module.exports = router;

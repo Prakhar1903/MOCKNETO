@@ -2,8 +2,10 @@ import React, {
   useEffect,
   useRef,
   useState,
+  useMemo,
 } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useNavigate, useLocation } from "react-router-dom";
 // useEffect, useRef, useState } from "react";
 import {
   getMbaFocusAreas,
@@ -11,20 +13,72 @@ import {
   getMbaSpecialization,
   MBA_SPECIALIZATIONS,
 } from "../utils/mbaCatalog";
+import { useMicMonitor } from "../hooks/useMicMonitor";
+
+const VibeMeter = ({ score, isAwaiting }) => {
+  const pct = !isAwaiting && typeof score === "number" ? Math.max(0, Math.min(10, score)) / 10 : 0.5;
+  const color = isAwaiting ? "#ffffff20" : pct >= 0.7 ? "#10b981" : pct >= 0.4 ? "#f59e0b" : "#ef4444";
+  const label = isAwaiting ? "Awaiting Data" : pct >= 0.7 ? "Strong" : pct >= 0.4 ? "Average" : "Needs Work";
+  const cx = 80, cy = 80, r = 58;
+  const toXY = (deg) => {
+    const rad = (deg * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  };
+  const start = toXY(180), end = toXY(0);
+  const needle = toXY(180 + pct * 180);
+
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox="0 0 160 100" className="w-full max-w-[160px]">
+        <path d={`M ${start.x} ${start.y} A ${r} ${r} 0 0 1 ${end.x} ${end.y}`} fill="none" stroke="#ffffff08" strokeWidth="14" strokeLinecap="round" />
+        <motion.path
+          d={`M ${start.x} ${start.y} A ${r} ${r} 0 0 1 ${needle.x} ${needle.y}`}
+          fill="none"
+          stroke={color}
+          strokeWidth="14"
+          strokeLinecap="round"
+          animate={{ stroke: color }}
+          transition={{ duration: 0.8 }}
+        />
+        <text x={cx} y={cy - 8} textAnchor="middle" fill={isAwaiting ? "rgba(255,255,255,0.2)" : "white"} fontSize="24" fontWeight="900" className="font-sans">
+          {isAwaiting ? "—" : typeof score === "number" ? score : "—"}
+        </text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fill={color} fontSize="9" fontWeight="bold" className="font-sans tracking-wide uppercase">
+          {label}
+        </text>
+      </svg>
+      <p className="text-[11px] text-white/40 uppercase tracking-widest font-black mt-2 flex items-center gap-1">
+        <span className="material-symbols-outlined text-xs text-violet-400">monitoring</span>
+        Vibe Score
+      </p>
+    </div>
+  );
+};
+
+const VOICE_PERSONAS = [
+  { name: "Sarah Chen", avatar: "SC", color: "#8b5cf6", title: "Principal Engineer @ Meta" },
+  { name: "Marcus Webb", avatar: "MW", color: "#06b6d4", title: "Engineering Manager @ Google" },
+  { name: "Priya Sharma", avatar: "PS", color: "#f59e0b", title: "Staff SDE @ Amazon" },
+];
 
 const VoiceInterview = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const routeConfig = location.state?.config || {};
   const streamRef = useRef(null);
   const monitorAudioRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const recordedChunksRef = useRef([]);
 
+  const persona = VOICE_PERSONAS[routeConfig.personaIdx ?? 0];
+
   const [interviewDetails, setInterviewDetails] = useState({
-    company: "",
-    jobRole: "Software Engineer",
-    level: "mid",
-    focusArea: "behavioral",
-    track: "tech",
-    mbaSpecialization: "marketing",
+    company: routeConfig.company || "",
+    jobRole: routeConfig.jobRole || "Software Engineer",
+    level: routeConfig.level || "mid",
+    focusArea: routeConfig.focusArea || "behavioral",
+    track: routeConfig.track || "tech",
+    mbaSpecialization: routeConfig.mbaSpecialization || "marketing",
   });
 
   const [permissionError, setPermissionError] = useState("");
@@ -36,6 +90,9 @@ const VoiceInterview = () => {
   const [questions, setQuestions] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState([]);
+  const [answerChecks, setAnswerChecks] = useState([]);
+  const [savedSessionId, setSavedSessionId] = useState(null);
+  const [startedAt] = useState(() => new Date());
   const [currentAnswer, setCurrentAnswer] = useState("");
   const [assistantHelp, setAssistantHelp] = useState(null); // { approach, sampleAnswer, spokenText }
   const [answerCheck, setAnswerCheck] = useState(null); // { index, answer, feedback, source }
@@ -43,9 +100,11 @@ const VoiceInterview = () => {
   const [answerStructure, setAnswerStructure] = useState(null); // { title, template }
   const [showIdealAnswer, setShowIdealAnswer] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [interviewStage, setInterviewStage] = useState("setup");
+  const [interviewStage, setInterviewStage] = useState("initializing");
   const [feedback, setFeedback] = useState("");
   const lastCheckedAnswerRef = useRef("");
+  const [hintCredits, setHintCredits] = useState(3);
+  const [submitWarning, setSubmitWarning] = useState(null); // null | 'empty' | 'short'
 
   const verdictStyles = (verdict) => {
     const v = String(verdict || "").toLowerCase();
@@ -59,7 +118,7 @@ const VoiceInterview = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      await fetch("/api/interview/history", {
+      const res = await fetch("/api/interview/history", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -68,6 +127,7 @@ const VoiceInterview = () => {
         body: JSON.stringify(payload),
         credentials: "include",
       });
+      return await res.json();
     } catch {
       // ignore
     }
@@ -136,6 +196,47 @@ const VoiceInterview = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [autoPlayVoice, setAutoPlayVoice] = useState(true);
 
+  const [timeLeft, setTimeLeft] = useState(300);
+  const timerRef = useRef(null);
+  
+  const [localStream, setLocalStream] = useState(null);
+  const { isMicActive, lastError: micMonitorError } = useMicMonitor(localStream);
+
+  useEffect(() => {
+    if (interviewStage === "interview") {
+      if (isMicActive) {
+        setTimeLeft(prev => prev); // Ensure state is ready
+        timerRef.current = setInterval(() => {
+          setTimeLeft(prev => {
+            if (prev <= 0) { clearInterval(timerRef.current); return 0; }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        clearInterval(timerRef.current);
+      }
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [interviewStage, currentQuestionIndex, isMicActive]);
+
+  const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  const currentVibeScore = useMemo(() => {
+    if (answerCheck && typeof answerCheck.score === "number") {
+      return answerCheck.score;
+    }
+    const completedScores = answerChecks
+      .filter(c => c && typeof c.score === "number")
+      .map(c => c.score);
+    return completedScores.length > 0
+      ? Math.round(completedScores.reduce((sum, s) => sum + s, 0) / completedScores.length)
+      : null;
+  }, [answerCheck, answerChecks]);
+
+  const isAwaitingVibe = currentVibeScore === null;
+
   useEffect(() => {
     const sync = () => {
       try {
@@ -165,6 +266,24 @@ const VoiceInterview = () => {
     if (typeof item === "object") return String(item.question || item.q || "");
     return "";
   };
+
+  useEffect(() => {
+    if (interviewStage === "initializing") {
+      const init = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          if (stream) {
+            setLocalStream(stream);
+            setIsMicOn(true);
+            await generateQuestions();
+          }
+        } catch (err) {
+          setPermissionError("Microphone access denied or disconnected.");
+        }
+      };
+      init();
+    }
+  }, [interviewStage]);
 
   const getIdealAnswer = (item) => {
     if (!item || typeof item !== "object") return "";
@@ -938,13 +1057,20 @@ const VoiceInterview = () => {
         credentials: "include",
       });
 
+      if (response.status === 401) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        window.location.href = "/login";
+        return;
+      }
+
       if (!response.ok) {
         const errText = await response.text().catch(() => "");
         throw new Error(errText || `Failed to fetch questions (${response.status})`);
       }
 
       const data = await response.json();
-      const qs = Array.isArray(data?.questions) ? data.questions : [];
+      const qs = Array.isArray(data?.questions) ? data.questions.slice(0, 8) : [];
       if (!qs.length) throw new Error("No questions received");
 
       if (!isMicOn) await startMic();
@@ -968,13 +1094,69 @@ const VoiceInterview = () => {
     }
   };
 
+  const advanceToNext = () => {
+    setAnswerChecks(prev => {
+      const updated = [...prev];
+      updated[currentQuestionIndex] = answerCheck;
+      return updated;
+    });
+    const updated = [...answers];
+    updated[currentQuestionIndex] = currentAnswer;
+    setAnswers(updated);
+    setCurrentAnswer("");
+    setAssistantHelp(null);
+    setAnswerCheck(null);
+    setSubmitWarning(null);
+    lastCheckedAnswerRef.current = "";
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      setAssistantHelp(null);
+      setAnswerCheck(null);
+      setShowIdealAnswer(false);
+      if (autoPlayVoice) speakQuestion(getQuestionText(questions[nextIndex]));
+    }
+  };
+
+  const skipQuestion = () => {
+    if (hintCredits <= 0) return;
+    setHintCredits(c => c - 1);
+    setCurrentAnswer("");
+    setAssistantHelp(null);
+    setAnswerCheck(null);
+    setSubmitWarning(null);
+    lastCheckedAnswerRef.current = "";
+    setAnswerChecks(prev => {
+      const updated = [...prev];
+      updated[currentQuestionIndex] = { skipped: true, index: currentQuestionIndex };
+      return updated;
+    });
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      setShowIdealAnswer(false);
+      if (autoPlayVoice) speakQuestion(getQuestionText(questions[nextIndex]));
+    }
+  };
+
   const submitAnswer = () => {
-    if (!currentAnswer.trim()) {
-      provideInstantHelp("empty");
+    const wordCount = currentAnswer.trim().split(/\s+/).filter(Boolean).length;
+
+    // Block empty submission — don't auto-hint, just show warning
+    if (wordCount === 0) {
+      setSubmitWarning("empty");
       return;
     }
 
-    // First click: check the answer (instant coaching). Second click: proceed.
+    // Warn if too short, but allow confirm to proceed
+    if (wordCount < 10 && submitWarning !== "short-confirmed") {
+      setSubmitWarning("short");
+      return;
+    }
+
+    setSubmitWarning(null);
+
+    // First click: check the answer. Second click: proceed.
     const normalized = normalizeText(currentAnswer);
     const alreadyChecked =
       answerCheck &&
@@ -987,41 +1169,7 @@ const VoiceInterview = () => {
       return;
     }
 
-    // Save per-question history on submit.
-    try {
-      const qText = getQuestionText(questions[currentQuestionIndex]);
-      const normalizedAnswer = normalizeText(currentAnswer);
-      persistPerQuestionHistory({
-        score: typeof answerCheck?.score === "number" ? answerCheck.score : undefined,
-        text:
-          `Q${currentQuestionIndex + 1}: ${qText}\n` +
-          `A: ${normalizedAnswer}\n` +
-          (answerCheck?.verdict ? `Verdict: ${answerCheck.verdict}\n` : "") +
-          (typeof answerCheck?.score === "number"
-            ? `Score: ${answerCheck.score}/10\n\n`
-            : "\n") +
-          String(answerCheck?.feedback || "").trim(),
-      });
-    } catch {
-      // ignore
-    }
-
-    const updated = [...answers];
-    updated[currentQuestionIndex] = currentAnswer;
-    setAnswers(updated);
-    setCurrentAnswer("");
-    setAssistantHelp(null);
-    setAnswerCheck(null);
-    lastCheckedAnswerRef.current = "";
-    if (currentQuestionIndex < questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1;
-      setCurrentQuestionIndex(nextIndex);
-      setAssistantHelp(null);
-      setAnswerCheck(null);
-      setShowIdealAnswer(false);
-      // Speak next question during the click gesture (more reliable than autoplay)
-      if (autoPlayVoice) speakQuestion(getQuestionText(questions[nextIndex]));
-    }
+    advanceToNext();
   };
 
   const generateFeedback = async () => {
@@ -1055,17 +1203,95 @@ const VoiceInterview = () => {
       const data = await response.json();
       const generatedFeedback = data?.feedback || "No feedback generated";
       setFeedback(generatedFeedback);
-      appendFeedbackToHistory(generatedFeedback);
       setInterviewStage("feedback");
+
+      // Save to server
+      const answeredChecks = answerChecks.filter(Boolean);
+      const avgScore = answeredChecks.length
+        ? Math.round(answeredChecks.reduce((s, c) => s + (c?.score || 0), 0) / answeredChecks.length) * 10
+        : 0;
+
+      const endedAtVal = new Date();
+      const durationMins = Math.max(1, Math.round((endedAtVal - startedAt) / 60000));
+
+      const sessionPayload = {
+        date: new Date().toISOString(),
+        mode: "voice",
+        company: interviewDetails.company || "Mock",
+        jobRole: interviewDetails.jobRole || "Interview",
+        level: interviewDetails.level || "mid",
+        focusArea: interviewDetails.focusArea || "general",
+        track: interviewDetails.track || "general",
+        mbaSpecialization: interviewDetails.mbaSpecialization || "",
+        interviewer: "Voice Session",
+        score: avgScore,
+        overallFeedback: generatedFeedback,
+        questions: questions.map((q, i) => ({
+          questionText: getQuestionText(q),
+          answerText: answers[i] || "",
+          verdict: answerChecks[i]?.verdict || "",
+          aiFeedback: answerChecks[i]?.feedback || answerChecks[i]?.helpful || "",
+          score: answerChecks[i]?.score,
+          improvedAnswer: answerChecks[i]?.improvedAnswer || "",
+        })),
+        startedAt: startedAt,
+        endedAt: endedAtVal,
+        duration: durationMins,
+      };
+
+      persistHistoryToServer(sessionPayload).then(saveRes => {
+        if (saveRes && saveRes.id) {
+          setSavedSessionId(saveRes.id);
+        }
+      });
     } catch (error) {
       console.error("Error generating feedback:", error);
-      setFeedback(
+      const fbText =
         "Failed to generate feedback. Here's a basic analysis:\n\n" +
-          questions
-            .map((q, i) => `Q${i + 1}: ${getQuestionText(q)}\nA: ${answers[i] || "No answer"}\n`)
-            .join("\n"),
-      );
+        questions
+          .map((q, i) => `Q${i + 1}: ${getQuestionText(q)}\nA: ${answers[i] || "No answer"}\n`)
+          .join("\n");
+      setFeedback(fbText);
       setInterviewStage("feedback");
+
+      const answeredChecks = answerChecks.filter(Boolean);
+      const avgScore = answeredChecks.length
+        ? Math.round(answeredChecks.reduce((s, c) => s + (c?.score || 0), 0) / answeredChecks.length) * 10
+        : 0;
+
+      const endedAtVal = new Date();
+      const durationMins = Math.max(1, Math.round((endedAtVal - startedAt) / 60000));
+
+      const sessionPayload = {
+        date: new Date().toISOString(),
+        mode: "voice",
+        company: interviewDetails.company || "Mock",
+        jobRole: interviewDetails.jobRole || "Interview",
+        level: interviewDetails.level || "mid",
+        focusArea: interviewDetails.focusArea || "general",
+        track: interviewDetails.track || "general",
+        mbaSpecialization: interviewDetails.mbaSpecialization || "",
+        interviewer: "Voice Session",
+        score: avgScore,
+        overallFeedback: fbText,
+        questions: questions.map((q, i) => ({
+          questionText: getQuestionText(q),
+          answerText: answers[i] || "",
+          verdict: answerChecks[i]?.verdict || "",
+          aiFeedback: answerChecks[i]?.feedback || answerChecks[i]?.helpful || "",
+          score: answerChecks[i]?.score,
+          improvedAnswer: answerChecks[i]?.improvedAnswer || "",
+        })),
+        startedAt: startedAt,
+        endedAt: endedAtVal,
+        duration: durationMins,
+      };
+
+      persistHistoryToServer(sessionPayload).then(saveRes => {
+        if (saveRes && saveRes.id) {
+          setSavedSessionId(saveRes.id);
+        }
+      });
     } finally {
       setIsLoading(false);
       stopMic();
@@ -1081,285 +1307,250 @@ const VoiceInterview = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-6 transition-colors duration-300">
-      <div className="max-w-6xl mx-auto pt-6">
-        <AnimatePresence mode="wait" initial={false}>
-          {interviewStage === "setup" && (
-            <motion.div
-              key="setup"
-              initial={{ opacity: 0, scale: 0.98 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.98 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="glass rounded-[2.5rem] p-8 md:p-12 shadow-premium max-w-3xl mx-auto"
-            >
-              <div className="text-center mb-10 space-y-2">
-                <h1 className="text-4xl font-extrabold tracking-tight">Setup Voice Interview</h1>
-                <p className="text-foreground/60 font-medium">Fine-tune your simulation parameters for a realistic audio experience.</p>
+    <div className="h-full w-full flex flex-col bg-background text-foreground transition-colors duration-300 overflow-hidden relative">
+      {/* Background gradients similar to ChatInterview */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-violet-600/8 blur-[120px] rounded-full" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[300px] bg-indigo-600/8 blur-[100px] rounded-full" />
+      </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        {interviewStage === "initializing" && (
+          <motion.div
+            key="initializing"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-center z-50 bg-background/80 backdrop-blur-sm"
+          >
+            <div className="text-center">
+              <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: "linear" }} className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-foreground">Initializing Session...</h2>
+              <p className="text-foreground/60 mt-2">Checking microphone access...</p>
+            </div>
+          </motion.div>
+        )}
+
+        {(interviewStage === "error" || permissionError) && interviewStage !== "interview" && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 flex items-center justify-center z-50 p-8"
+          >
+            <div className="glass rounded-[2.5rem] p-10 max-w-lg text-center shadow-premium bg-background/90 backdrop-blur-xl border border-white/10">
+              <span className="text-5xl mb-4 block">⚠️</span>
+              <h2 className="text-2xl font-bold mb-2 text-red-400">Microphone Not Detected</h2>
+              <p className="text-foreground/70 mb-8">{permissionError || "Your microphone isn't accessible. The interview hasn't started yet."}</p>
+              <div className="flex flex-col gap-3">
+                 <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-2xl bg-secondary hover:bg-secondary/80 font-bold transition-all text-sm text-foreground">
+                    Fix Microphone
+                 </button>
+                 <button onClick={() => navigate('/chat-interview', { state: location.state })} className="px-6 py-3 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all text-sm">
+                    Switch to Chat Mode
+                 </button>
               </div>
+            </div>
+          </motion.div>
+        )}
 
-              <div className="grid md:grid-cols-2 gap-6 mb-10">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold ml-1 text-foreground/70">Company (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Google, Amazon"
-                    value={interviewDetails.company}
-                    onChange={(e) => handleDetailChange("company", e.target.value)}
-                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground placeholder-foreground/30 border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold ml-1 text-foreground/70">Job Role</label>
-                  <input
-                    type="text"
-                    placeholder={
-                      interviewDetails.track === "mba"
-                        ? "e.g. Management Trainee"
-                        : "e.g. Frontend Developer"
-                    }
-                    value={interviewDetails.jobRole}
-                    onChange={(e) => handleDetailChange("jobRole", e.target.value)}
-                    list={interviewDetails.track === "mba" ? "mba-job-roles-voice" : undefined}
-                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground placeholder-foreground/30 border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none"
-                  />
-                  {interviewDetails.track === "mba" && (
-                    <datalist id="mba-job-roles-voice">
-                      {getMbaJobRoleSuggestions(interviewDetails.mbaSpecialization).map((r) => (
-                        <option key={r} value={r} />
-                      ))}
-                    </datalist>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold ml-1 text-foreground/70">Experience Level</label>
-                  <select
-                    value={interviewDetails.level}
-                    onChange={(e) => handleDetailChange("level", e.target.value)}
-                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
-                  >
-                    <option value="entry">Entry Level</option>
-                    <option value="mid">Mid Level</option>
-                    <option value="senior">Senior Level</option>
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold ml-1 text-foreground/70">Interview Track</label>
-                  <select
-                    value={interviewDetails.track}
-                    onChange={(e) => handleDetailChange("track", e.target.value)}
-                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
-                  >
-                    <option value="tech">Tech / Software</option>
-                    <option value="mba">MBA</option>
-                  </select>
-                </div>
-
-                {interviewDetails.track === "mba" && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold ml-1 text-foreground/70">MBA Specialization</label>
-                    <select
-                      value={interviewDetails.mbaSpecialization}
-                      onChange={(e) => handleDetailChange("mbaSpecialization", e.target.value)}
-                      className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
-                    >
-                      {MBA_SPECIALIZATIONS.map((s) => (
-                        <option key={s.key} value={s.key}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
+        {interviewStage === "interview" && questions.length > 0 && (
+          <motion.div
+            key="interview"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex flex-col"
+          >
+            {/* Mid-Session Drop Banner */}
+            {(!isMicActive) && (
+               <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-amber-500/10 border border-amber-500/20 px-6 py-3 rounded-2xl shadow-xl backdrop-blur-xl flex items-center gap-4">
+                  <span className="text-amber-400 font-bold text-sm">⚠️ Microphone disconnected — Timer paused</span>
+                  <div className="flex gap-2 ml-4">
+                     <button onClick={() => navigate('/chat-interview', { state: location.state })} className="px-3 py-1.5 bg-amber-500/20 text-amber-300 rounded-lg text-xs font-bold hover:bg-amber-500/30 transition-colors">Switch to Typing</button>
+                     <button onClick={submitFinalAnswer} className="px-3 py-1.5 bg-red-500/20 text-red-300 rounded-lg text-xs font-bold hover:bg-red-500/30 transition-colors">End Session</button>
                   </div>
-                )}
+               </div>
+            )}
 
-                <div className="space-y-2">
-                  <label className="text-sm font-bold ml-1 text-foreground/70">Focus Area</label>
-                  <select
-                    value={interviewDetails.focusArea}
-                    onChange={(e) => handleDetailChange("focusArea", e.target.value)}
-                    className="w-full px-5 py-3.5 rounded-2xl bg-secondary text-foreground border-none ring-1 ring-border focus:ring-2 focus:ring-primary transition-all outline-none appearance-none cursor-pointer"
-                  >
-                    {interviewDetails.track === "mba" ? (
-                      getMbaFocusAreas(interviewDetails.mbaSpecialization).map((fa) => (
-                        <option key={fa} value={fa}>
-                          {fa}
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="technical">Technical</option>
-                        <option value="behavioral">Behavioral</option>
-                        <option value="system-design">System Design</option>
-                      </>
-                    )}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="mb-6 flex items-center justify-between p-4 bg-secondary/50 rounded-2xl border border-white/5">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${isMicOn ? 'bg-primary/20 text-primary' : 'bg-red-500/20 text-red-500'}`}>
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-foreground">Microphone Status</h3>
-                    <p className="text-sm text-foreground/60">{isMicOn ? "Microphone tested and ready" : "Please test your microphone before starting"}</p>
-                    {permissionError && <p className="text-sm font-medium text-red-400 mt-1">{permissionError}</p>}
-                  </div>
-                </div>
-                <button
-                  onClick={toggleMic}
-                  className={`px-4 py-2 font-bold rounded-xl transition-all ${isMicOn ? 'bg-secondary text-foreground hover:bg-secondary/80' : 'bg-primary text-primary-foreground hover:opacity-90'}`}
+            {/* TOP BAR */}
+            <div className="relative z-20 flex items-center justify-between px-6 py-3 border-b border-white/5 bg-black/40 backdrop-blur-xl flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white"
+                  style={{ backgroundColor: `${persona.color}25`, border: `1px solid ${persona.color}50` }}
                 >
-                  {isMicOn ? "Turn Off" : "Test Mic"}
-                </button>
+                  {persona.avatar}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">{persona.name}</p>
+                  <p className="text-[10px] text-white/30">{persona.title} · {interviewDetails.company || "Mock"}</p>
+                </div>
               </div>
-
-              <div className="flex items-center justify-between gap-4">
-                 <label className="flex items-center gap-3 cursor-pointer text-sm font-bold text-foreground/80 group">
-                    <input
-                      type="checkbox"
-                      checked={autoPlayVoice}
-                      onChange={(e) => setAutoPlayVoice(e.target.checked)}
-                      className="w-5 h-5 rounded bg-secondary border-border text-primary focus:ring-primary focus:ring-offset-background"
-                    />
-                    <span className="group-hover:text-foreground transition-colors">Auto-read questions aloud</span>
-                  </label>
-
-                  <button
-                    onClick={generateQuestions}
-                    disabled={isLoading || !isMicOn}
-                    className="shine-hover px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-                  >
-                    {isLoading ? "Starting Session..." : "Start Interview"}
-                  </button>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 text-[10px] text-white/30 font-bold">
+                  <span>💡</span>
+                  <span>{hintCredits} credits</span>
+                </div>
+                <div className={`font-mono text-lg font-black tabular-nums transition-all ${timeLeft < 20 ? "text-red-400" : timeLeft < 60 ? "text-amber-400" : "text-white"}`}>
+                  {formatTime(timeLeft)}
+                </div>
+                <div className="text-xs text-white/30 font-medium">Q{currentQuestionIndex + 1}/{questions.length}</div>
               </div>
-            </motion.div>
-          )}
+            </div>
 
-          {interviewStage === "interview" && questions.length > 0 && (
-            <motion.div
-              key="interview"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col lg:flex-row gap-8"
-            >
-              {/* Main Interview Area */}
-              <div className="flex-1 flex flex-col gap-6">
-                <div className="glass rounded-[2.5rem] p-8 lg:p-12 shadow-premium flex-1 relative overflow-hidden flex flex-col items-center justify-center min-h-[500px]">
-                  <div className="absolute top-8 left-8 right-8 flex items-center justify-between">
-                    <div className="px-5 py-2 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest relative overflow-hidden">
-                      <div className="absolute inset-0 bg-primary/20" style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}></div>
-                      <span className="relative z-10">Question {currentQuestionIndex + 1} of {questions.length}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => speakQuestion(getQuestionText(questions[currentQuestionIndex]))}
-                        className="p-2 rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
-                        title="Read question aloud"
-                      >
-                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.898a9 9 0 010 12.728M5 13l4 4L19 7" /></svg>
-                      </button>
-                      <button
-                        onClick={toggleMic}
-                        className={`p-2 rounded-full transition-colors ${
-                          isMicOn
-                            ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20"
-                            : "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                        }`}
-                        title={isMicOn ? "Turn off mic" : "Turn on mic"}
-                      >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                           {isMicOn ? (
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                           ) : (
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
-                           )}
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+            {/* 3-COLUMN BODY */}
+            <div className="relative z-10 flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+              
+              {/* LEFT PANEL */}
+              <div className="w-full lg:w-[220px] flex-shrink-0 flex flex-col gap-4 p-4 border-r border-white/5 overflow-y-auto">
+                {/* Question card */}
+                <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.25em] text-primary mb-2">Question {currentQuestionIndex + 1}</p>
+                  <p className="text-sm text-white/80 leading-relaxed">
+                    {getQuestionText(questions[currentQuestionIndex])}
+                  </p>
+                </div>
 
-                  <h2 className="text-2xl md:text-3xl font-extrabold leading-tight text-center max-w-3xl mb-12 relative z-10 pt-16">
-                    "{getQuestionText(questions[currentQuestionIndex])}"
-                  </h2>
-
-                  {/* AI Orb Visualizer */}
-                  <div className="flex-1 flex items-center justify-center relative w-full mb-8">
-                     <motion.div
-                       animate={{ 
-                         scale: isListening ? [1, 1.15, 1] : 1,
-                         opacity: isListening ? [0.6, 1, 0.6] : 0.8
-                       }}
-                       transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                       className="absolute"
-                     >
-                       <div className={`w-40 h-40 rounded-full blur-3xl ${isListening ? 'bg-primary/40' : 'bg-primary/20'}`}></div>
-                     </motion.div>
-                     
-                     <button
-                        onClick={toggleListening}
-                        disabled={!isMicOn}
-                        className={`relative z-10 w-32 h-32 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${
-                          isListening 
-                            ? 'border-primary bg-primary/20 shadow-[0_0_50px_rgba(124,92,252,0.4)]' 
-                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
-                        } ${!isMicOn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                     >
-                       <svg className={`w-12 h-12 transition-all ${isListening ? 'text-primary animate-pulse' : 'text-foreground/50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                         {isListening 
-                           ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v18l15-9L5 3z" />
-                           : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                         }
-                       </svg>
-                     </button>
-                  </div>
-                  <div className="text-center font-bold text-foreground/50 tracking-widest uppercase text-sm mb-12">
-                    {isListening ? "Listening..." : isMicOn ? "Click Orb To Speak" : "Mic Muted"}
-                  </div>
-
-                  <div className="absolute bottom-8 left-8 right-8 flex justify-between items-center z-10">
-                    <button
-                      onClick={() => provideInstantHelp("manual")}
-                      disabled={isChecking}
-                      className="px-6 py-3 rounded-2xl bg-secondary/80 text-foreground font-bold hover:bg-secondary transition-colors disabled:opacity-50 flex items-center gap-2"
-                    >
-                      <span className="text-lg">💡</span> Get Hint
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowIdealAnswer(!showIdealAnswer)}
-                      className="text-xs font-bold text-foreground/40 hover:text-foreground transition-colors"
-                    >
-                      {showIdealAnswer ? 'Hide' : 'View'} Target Concept
-                    </button>
+                {/* Progress dots */}
+                <div className="rounded-2xl border border-white/8 bg-white/3 p-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mb-3">Progress</p>
+                  <div className="flex flex-wrap gap-2">
+                    {questions.map((_, i) => {
+                      const check = answerChecks[i];
+                      const isDone = !!answers[i];
+                      const isCurrent = i === currentQuestionIndex;
+                      return (
+                        <div key={i} title={`Q${i + 1}`}
+                          className={`w-7 h-7 rounded-full border text-[9px] font-black flex items-center justify-center transition-all ${
+                            isCurrent ? "bg-primary border-primary/50 text-primary-foreground shadow-[0_0_8px_rgba(139,92,246,0.5)]"
+                            : isDone && check?.verdict === "strong" ? "bg-green-500/20 border-green-500/50 text-green-300"
+                            : isDone && check?.verdict === "weak" ? "bg-red-500/20 border-red-500/50 text-red-300"
+                            : isDone ? "bg-white/10 border-white/20 text-white/60"
+                            : "border-white/10 text-white/20"
+                          }`}
+                        >
+                          {i + 1}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="flex gap-4 items-center px-4">
-                  {currentQuestionIndex > 0 ? (
-                    <button
-                      onClick={() => setCurrentQuestionIndex((prev) => prev - 1)}
-                      className="px-6 py-4 rounded-2xl font-bold bg-transparent text-foreground/60 hover:text-foreground hover:bg-white/5 transition-all outline-none"
+                <div className="rounded-2xl border border-white/8 bg-white/3 p-4 mt-auto hidden lg:flex lg:flex-col gap-2">
+                  <button
+                    onClick={() => { if (hintCredits > 0) { setHintCredits(c => c - 1); provideInstantHelp("manual"); } }}
+                    disabled={isChecking || hintCredits <= 0}
+                    className="w-full py-2 rounded-xl text-xs font-bold bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Get Hint ({hintCredits})
+                  </button>
+                  <button
+                    onClick={skipQuestion}
+                    disabled={hintCredits <= 0}
+                    className="w-full py-1.5 rounded-xl text-[10px] font-bold bg-white/3 border border-white/8 text-white/40 hover:text-white/70 hover:bg-white/5 transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                  >
+                    Skip (costs 1 credit)
+                  </button>
+                </div>
+              </div>
+
+              {/* CENTER PANEL */}
+              <div className="flex-1 flex flex-col items-center justify-center relative p-6">
+                <div className="absolute top-6 right-6 flex items-center gap-3 z-20">
+                   <button 
+                     onClick={() => speakQuestion(getQuestionText(questions[currentQuestionIndex]))}
+                     className="p-2 rounded-full bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
+                     title="Read question aloud"
+                   >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.898a9 9 0 010 12.728M5 10v4a2 2 0 002 2h2.586l4.707 4.707A1 1 0 0016 20V4a1 1 0 00-1.707-.707L9.586 8H7a2 2 0 00-2 2z" /></svg>
+                   </button>
+                </div>
+
+                <h2 className="text-xl md:text-2xl font-extrabold leading-tight text-center max-w-2xl mb-6 relative z-10 pt-2">
+                  "{getQuestionText(questions[currentQuestionIndex])}"
+                </h2>
+
+                {/* AI Orb Visualizer */}
+                <div className="flex flex-col items-center justify-center relative w-full mb-6">
+                   <motion.div
+                     animate={{ 
+                       scale: isListening ? [1, 1.15, 1] : 1,
+                       opacity: isListening ? [0.6, 1, 0.6] : 0.8
+                     }}
+                     transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                     className="absolute"
+                   >
+                     <div className={`w-48 h-48 rounded-full blur-3xl ${isListening ? 'bg-primary/40' : 'bg-primary/20'}`}></div>
+                   </motion.div>
+                   
+                   {/* Ready ring */}
+                   {!isListening && isMicOn && (
+                     <div className="absolute w-44 h-44 rounded-full border-2 border-emerald-500/40 animate-pulse" />
+                   )}
+
+                   <button
+                      onClick={toggleListening}
+                      disabled={!isMicOn}
+                      className={`relative z-10 w-36 h-36 rounded-full border-4 flex items-center justify-center transition-all duration-300 ${
+                        isListening 
+                          ? 'border-primary bg-primary/20 shadow-[0_0_50px_rgba(124,92,252,0.4)]' 
+                          : 'border-emerald-500/30 bg-white/5 hover:border-emerald-400/60 hover:bg-white/10'
+                      } ${!isMicOn ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                   >
+                     <svg className={`w-14 h-14 transition-all ${isListening ? 'text-primary animate-pulse' : 'text-emerald-400/70'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                       {isListening 
+                         ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v18l15-9L5 3z" />
+                         : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                       }
+                     </svg>
+                   </button>
+
+                   <p className={`mt-4 text-xs font-bold uppercase tracking-widest transition-colors ${
+                     isListening ? 'text-primary animate-pulse' : 'text-emerald-400/60'
+                   }`}>
+                     {isListening ? '● Recording...' : 'Tap to speak'}
+                   </p>
+                </div>
+
+                {/* Submit warning inline */}
+                <AnimatePresence>
+                  {submitWarning === 'empty' && (
+                    <motion.p
+                      key="warn-empty"
+                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="text-sm text-amber-400 font-bold mb-3 text-center"
                     >
-                      Previous
-                    </button>
-                  ) : (
-                    <div></div>
+                      You haven't spoken yet. Please record your answer before continuing.
+                    </motion.p>
                   )}
+                  {submitWarning === 'short' && (
+                    <motion.div
+                      key="warn-short"
+                      initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="flex flex-col items-center gap-2 mb-3"
+                    >
+                      <p className="text-sm text-amber-400 font-bold text-center">Your answer seems too short. Continue anyway?</p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setSubmitWarning(null)}
+                          className="px-4 py-1.5 rounded-xl text-xs font-bold bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 transition-all"
+                        >Keep speaking</button>
+                        <button
+                          onClick={() => { setSubmitWarning('short-confirmed'); setTimeout(submitAnswer, 0); }}
+                          className="px-4 py-1.5 rounded-xl text-xs font-bold bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 transition-all"
+                        >Continue anyway</button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-                  <div className="flex-1"></div>
-
+                <div className="w-full max-w-xl flex gap-4 items-center justify-center">
                   {currentQuestionIndex < questions.length - 1 ? (
                     <button
                       onClick={submitAnswer}
                       disabled={isChecking}
-                      className="shine-hover px-10 py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center gap-2"
+                      className="shine-hover flex-1 max-w-[240px] py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex justify-center items-center gap-2"
                     >
                       {answerCheck && answerCheck.index === currentQuestionIndex ? "Next Question" : "Check & Next"}
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
@@ -1368,92 +1559,68 @@ const VoiceInterview = () => {
                     <button
                       onClick={submitFinalAnswer}
                       disabled={isLoading || isChecking}
-                      className="shine-hover px-10 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                      className="shine-hover flex-1 max-w-[240px] py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-400 text-white font-bold shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
                     >
-                      {isLoading ? "Generating Feedback..." : "Finish Interview"}
+                      {isLoading ? "Finishing..." : "Finish Interview"}
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Right Sidebar: Transcript & Analysis */}
-              <div className="w-full lg:w-96 flex flex-col gap-6">
-                 <div className="glass rounded-[2rem] p-6 shadow-premium flex-1 flex flex-col max-h-[500px]">
-                   <h3 className="font-bold text-foreground/80 mb-4 flex items-center gap-2">
-                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                     Live Transcript
-                   </h3>
-                   <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
-                     <textarea
-                       className="w-full h-full min-h-[150px] p-4 bg-secondary/30 rounded-2xl border border-white/5 text-foreground/80 resize-none outline-none focus:ring-1 focus:ring-primary/50 text-sm leading-relaxed"
-                       value={currentAnswer}
-                       onChange={(e) => setCurrentAnswer(e.target.value)}
-                       placeholder="Speak clearly, your transcript will appear here..."
-                     />
-                   </div>
-                 </div>
-
-                 <AnimatePresence>
-                   {(assistantHelp || answerCheck || showIdealAnswer) && (
-                     <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="glass rounded-[2rem] p-6 shadow-premium overflow-hidden"
-                     >
-                        {showIdealAnswer && (
-                          <div className="mb-4">
-                             <h4 className="text-primary font-bold text-sm mb-2">Reference Concept</h4>
-                             <p className="text-sm text-foreground/80 leading-relaxed bg-secondary/50 p-4 rounded-2xl">{typeof questions[currentQuestionIndex] === "object" ? String(questions[currentQuestionIndex]?.answer || "").trim() : ""}</p>
-                          </div>
-                        )}
-
-                        {assistantHelp && (
-                           <div className="mb-4">
-                             <h4 className="text-amber-400 font-bold text-sm mb-2 flex items-center gap-2">💡 Hint</h4>
-                             <div className="bg-amber-400/10 border border-amber-400/20 p-4 rounded-2xl text-sm text-amber-200/90 leading-relaxed">
-                               {assistantHelp.approach}
-                             </div>
-                           </div>
-                        )}
-
-                        {answerCheck && answerCheck.index === currentQuestionIndex && (
-                           <div>
-                              <div className="flex items-center justify-between mb-4">
-                               <h3 className="font-bold text-emerald-400 flex items-center gap-2">
-                                 ✅ Analysis Ready
-                               </h3>
-                               {typeof answerCheck?.score === "number" && (
-                                 <div className="px-3 py-1 rounded-full bg-primary/20 text-primary text-sm font-bold">
-                                   {answerCheck.score}/10
-                                 </div>
-                               )}
-                              </div>
-                              <p className="text-sm text-foreground/90 font-medium mb-3 italic">"{String(answerCheck.feedback).split('\n')[0]}"</p>
-                              
-                              <div className="flex gap-2">
-                                {answerCheck?.verdict && (
-                                  <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold ${verdictStyles(answerCheck.verdict)}`}>
-                                    {String(answerCheck.verdict).toUpperCase()}
-                                  </span>
-                                )}
-                              </div>
-                           </div>
-                        )}
-                     </motion.div>
-                   )}
-                 </AnimatePresence>
+              {/* RIGHT PANEL - Transcript & Analysis */}
+              <div className="w-full lg:w-[320px] flex-shrink-0 flex flex-col gap-4 p-4 border-l border-white/5">
+                <div className="rounded-2xl border border-white/8 bg-white/3 p-4 flex flex-col items-center justify-center min-h-[160px]">
+                  <VibeMeter score={currentVibeScore} isAwaiting={isAwaitingVibe} />
+                </div>
+                
+                <div className="rounded-2xl border border-white/8 bg-white/3 p-4 flex-1 flex flex-col min-h-0">
+                  <h3 className="text-xs font-bold text-foreground/80 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Live Transcript
+                  </h3>
+                  <textarea
+                    className="flex-1 w-full p-4 bg-black/20 rounded-xl border border-white/5 text-foreground/80 resize-none outline-none focus:ring-1 focus:ring-primary/50 text-[13px] leading-relaxed custom-scrollbar min-h-[150px]"
+                    value={currentAnswer}
+                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                    placeholder="Speak clearly, your transcript will appear here..."
+                  />
+                  <div className="flex items-center justify-between mt-3 px-1 text-[9px] font-black text-foreground/40 uppercase tracking-widest">
+                    <span>~{currentAnswer.split(/\s+/).filter(Boolean).length} words</span>
+                    <span>{formatTime(300 - timeLeft)} spoken</span>
+                  </div>
+                </div>
+                
+                {/* Assistant Help Overlay */}
+                <AnimatePresence>
+                  {assistantHelp && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 shadow-lg"
+                    >
+                      <h4 className="text-amber-400 font-bold text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2">💡 Hint</h4>
+                      <div className="text-xs text-amber-200/90 leading-relaxed">
+                        {assistantHelp.approach}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
-            </motion.div>
-          )}
 
-          {interviewStage === "feedback" && (
-            <motion.div
-              key="feedback"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="glass rounded-[2.5rem] p-8 md:p-12 shadow-premium max-w-5xl mx-auto"
-            >
+            </div>
+          </motion.div>
+        )}
+
+        {/* FEEDBACK STAGE */}
+        {interviewStage === "feedback" && (
+          <motion.div
+            key="feedback"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 overflow-y-auto p-4 md:p-6 flex flex-col items-center justify-center bg-background"
+          >
+            <div className="glass rounded-[2.5rem] p-8 md:p-12 shadow-premium max-w-5xl mx-auto w-full">
               <div className="flex flex-col items-center justify-center text-center mb-12">
                 <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6 ring-4 ring-emerald-500/10">
                   <svg className="w-10 h-10 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
@@ -1476,31 +1643,24 @@ const VoiceInterview = () => {
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
-                  onClick={() => {
-                    setInterviewStage("setup");
-                    setQuestions([]);
-                    setAnswers([]);
-                    setCurrentQuestionIndex(0);
-                    setFeedback("");
-                  }}
+                  onClick={() => navigate('/')}
                   className="shine-hover px-8 py-4 rounded-2xl bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.05] active:scale-[0.98] transition-all"
                 >
-                  Start New Session
+                  Back to Dashboard
                 </button>
-                <button
-                  onClick={() => {
-                    setInterviewStage("interview");
-                    setCurrentQuestionIndex(0);
-                  }}
-                  className="px-8 py-4 rounded-2xl bg-secondary hover:bg-secondary/80 text-foreground font-bold transition-all"
-                >
-                  Review My Answers
-                </button>
+                {savedSessionId && (
+                  <button
+                    onClick={() => navigate(`/session/${savedSessionId}`)}
+                    className="px-8 py-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 font-bold hover:bg-cyan-500/20 transition-all flex items-center gap-2 justify-center hover:scale-[1.05] active:scale-[0.98]"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">play_circle</span> View Detailed Replay
+                  </button>
+                )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

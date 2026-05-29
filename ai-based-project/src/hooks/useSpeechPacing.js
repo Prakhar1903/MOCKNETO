@@ -19,6 +19,7 @@ export const useSpeechPacing = (persona = "friendly") => {
     wpmStatus: "good",   // "good" | "fast" | "slow"
     silenceSeconds: 0,   // continuous silence counter
     transcript: "",
+    interimTranscript: "",
   });
 
   const recognitionRef = useRef(null);
@@ -49,9 +50,13 @@ export const useSpeechPacing = (persona = "friendly") => {
 
     recognition.onresult = (event) => {
       let finalChunk = "";
+      let interimChunk = "";
+      
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
           finalChunk += event.results[i][0].transcript;
+        } else {
+          interimChunk += event.results[i][0].transcript;
         }
       }
 
@@ -72,6 +77,8 @@ export const useSpeechPacing = (persona = "friendly") => {
 
         fullTranscriptRef.current += " " + finalChunk;
       }
+      
+      setMetrics(prev => ({ ...prev, interimTranscript: interimChunk }));
     };
 
     recognition.onend = () => {
@@ -109,14 +116,15 @@ export const useSpeechPacing = (persona = "friendly") => {
       if (wpm > wpmFastThreshold) wpmStatus = "fast";
       else if (wpm > 0 && wpm < wpmSlowThreshold) wpmStatus = "slow";
 
-      setMetrics({
+      setMetrics(prev => ({
         fillerCount: fillerCountRef.current,
         fillerWarning: fillerCountRef.current >= fillerWarningAt,
         wpm,
         wpmStatus,
         silenceSeconds,
         transcript: fullTranscriptRef.current.trim(),
-      });
+        interimTranscript: prev.interimTranscript,
+      }));
     }, 1500);
 
     return () => clearInterval(interval);

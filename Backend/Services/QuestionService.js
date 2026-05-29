@@ -1055,6 +1055,13 @@ const QUESTIONS = {
     ],
 };
 
+// Aliases for frontend mock data
+QUESTIONS["node.js"] = QUESTIONS["node"];
+QUESTIONS["mongodb"] = QUESTIONS["node"]; // fallback for DB questions
+QUESTIONS["docker"] = QUESTIONS["devops"];
+QUESTIONS["leadership"] = QUESTIONS["hr"];
+QUESTIONS["problem solving"] = QUESTIONS["dsa-java"];
+
 exports.QUESTIONS = QUESTIONS;
 
 exports.getAllTopics = () => {

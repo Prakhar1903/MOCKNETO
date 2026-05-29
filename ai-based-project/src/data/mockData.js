@@ -108,3 +108,84 @@ export const MOCK_TIMELINE = [
     feedback: ["STAR method used effectively", "Tone was slightly defensive", "Good emphasis on team collaboration"]
   }
 ];
+
+// ─── Explore Mode Data ──────────────────────────────────────────────────────
+
+export const COMPANY_LIST = [
+  'Google', 'Amazon', 'Meta', 'Microsoft', 'Apple', 'Netflix',
+  'Stripe', 'Uber', 'Airbnb', 'Spotify', 'Salesforce', 'Adobe',
+  'Twitter', 'LinkedIn', 'Atlassian', 'Dropbox', 'Shopify', 'Square',
+];
+
+export const ROLE_LIST = [
+  'Software Engineer', 'Senior SWE', 'Frontend Engineer', 'Backend Engineer',
+  'Full Stack Engineer', 'ML Engineer', 'Data Scientist', 'DevOps Engineer',
+  'Site Reliability Engineer', 'Product Manager', 'Engineering Manager',
+];
+
+export const TOPIC_LIST = [
+  'Arrays & Hashing', 'Two Pointers', 'Sliding Window', 'Binary Search',
+  'Linked Lists', 'Trees', 'Tries', 'Graphs', 'Dynamic Programming',
+  'Greedy Algorithms', 'Backtracking', 'Heap / Priority Queue',
+  'System Design Fundamentals', 'Distributed Systems', 'Database Design',
+  'API Design', 'Microservices', 'Caching Strategies', 'Load Balancing',
+  'Leadership & Ownership', 'Conflict Resolution', 'Communication',
+  'STAR Method', 'Product Sense', 'Estimation / Fermi Problems',
+];
+
+export const ONBOARDING_ROLES = [
+  'Software Engineer', 'Senior Software Engineer', 'Staff Engineer',
+  'Frontend Engineer', 'Backend Engineer', 'Full Stack Engineer',
+  'ML Engineer', 'Data Scientist', 'DevOps Engineer',
+  'Site Reliability Engineer', 'Product Manager', 'Engineering Manager',
+  'Tech Lead', 'Principal Engineer',
+];
+
+export const ONBOARDING_COMPANIES = [
+  'Google', 'Amazon', 'Meta', 'Microsoft', 'Apple', 'Netflix',
+  'Stripe', 'Uber', 'Airbnb', 'Spotify', 'Salesforce', 'Adobe',
+  'Twitter / X', 'LinkedIn', 'Atlassian', 'Dropbox', 'Shopify',
+  'Goldman Sachs', 'Morgan Stanley', 'Bloomberg', 'Palantir', 'Snap',
+];
+
+export const EXPLORE_CARDS = [
+  { id: 'dsa-arrays', topic: 'Arrays & Hashing', category: 'DSA', difficulty: 'Easy', duration: '15', format: 'Chat', isNew: false, isTrending: true },
+  { id: 'dsa-two-ptr', topic: 'Two Pointers', category: 'DSA', difficulty: 'Easy', duration: '15', format: 'Chat', isNew: false, isTrending: false },
+  { id: 'dsa-binary-search', topic: 'Binary Search', category: 'DSA', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: false, isTrending: true },
+  { id: 'dsa-linked-list', topic: 'Linked Lists', category: 'DSA', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: false, isTrending: false },
+  { id: 'dsa-trees', topic: 'Binary Trees', category: 'DSA', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: false, isTrending: true },
+  { id: 'dsa-graphs', topic: 'Graph Traversal (BFS/DFS)', category: 'DSA', difficulty: 'Hard', duration: '45', format: 'Chat', isNew: false, isTrending: false },
+  { id: 'dsa-dp', topic: 'Dynamic Programming', category: 'DSA', difficulty: 'Hard', duration: '45', format: 'Chat', isNew: false, isTrending: true },
+  { id: 'dsa-heap', topic: 'Heap / Priority Queue', category: 'DSA', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: true, isTrending: false },
+  { id: 'sd-fundamentals', topic: 'System Design Fundamentals', category: 'System Design', difficulty: 'Medium', duration: '45', format: 'Chat', isNew: false, isTrending: true },
+  { id: 'sd-url-shortener', topic: 'URL Shortener Design', category: 'System Design', difficulty: 'Medium', duration: '45', format: 'Chat', isNew: false, isTrending: false },
+  { id: 'sd-twitter', topic: 'Twitter / Feed Design', category: 'System Design', difficulty: 'Hard', duration: '45', format: 'Voice', isNew: false, isTrending: true },
+  { id: 'sd-db-design', topic: 'Database Design Patterns', category: 'System Design', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: true, isTrending: false },
+  { id: 'sd-cache', topic: 'Caching Strategies', category: 'System Design', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: true, isTrending: false },
+  { id: 'sd-microservices', topic: 'Microservices Architecture', category: 'System Design', difficulty: 'Hard', duration: '45', format: 'Video', isNew: false, isTrending: false },
+  { id: 'beh-star', topic: 'STAR Method Walkthrough', category: 'Behavioral', difficulty: 'Easy', duration: '15', format: 'Voice', isNew: false, isTrending: false },
+  { id: 'beh-leadership', topic: 'Leadership & Ownership Stories', category: 'Behavioral', difficulty: 'Medium', duration: '30', format: 'Voice', isNew: false, isTrending: true },
+  { id: 'beh-conflict', topic: 'Conflict Resolution', category: 'Behavioral', difficulty: 'Medium', duration: '30', format: 'Voice', isNew: false, isTrending: false },
+  { id: 'beh-failure', topic: 'Failure & Learning Stories', category: 'Behavioral', difficulty: 'Easy', duration: '15', format: 'Voice', isNew: false, isTrending: false },
+  { id: 'beh-ambiguity', topic: 'Handling Ambiguity', category: 'Behavioral', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: true, isTrending: false },
+  { id: 'str-negotiation', topic: 'Offer Negotiation Tactics', category: 'Strategy', difficulty: 'Easy', duration: '15', format: 'Chat', isNew: false, isTrending: false },
+  { id: 'str-estimation', topic: 'Estimation / Fermi Problems', category: 'Strategy', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: false, isTrending: false },
+  { id: 'str-product-sense', topic: 'Product Sense for Engineers', category: 'Strategy', difficulty: 'Medium', duration: '30', format: 'Chat', isNew: true, isTrending: true },
+  { id: 'hr-intro', topic: 'Tell Me About Yourself', category: 'HR', difficulty: 'Easy', duration: '15', format: 'Video', isNew: false, isTrending: false },
+  { id: 'hr-strengths', topic: 'Strengths & Weaknesses', category: 'HR', difficulty: 'Easy', duration: '15', format: 'Video', isNew: false, isTrending: false },
+];
+
+export const TRENDING_TOPICS = [
+  { topic: 'Dynamic Programming', sessions: 1243, trend: '+18%' },
+  { topic: 'System Design Fundamentals', sessions: 987, trend: '+12%' },
+  { topic: 'Binary Trees', sessions: 854, trend: '+9%' },
+  { topic: 'Leadership Stories', sessions: 721, trend: '+22%' },
+  { topic: 'Twitter / Feed Design', sessions: 634, trend: '+15%' },
+];
+
+export const NEW_ADDITIONS = [
+  { topic: 'Heap / Priority Queue', category: 'DSA', addedDate: 'May 24' },
+  { topic: 'Database Design Patterns', category: 'System Design', addedDate: 'May 23' },
+  { topic: 'Handling Ambiguity', category: 'Behavioral', addedDate: 'May 22' },
+  { topic: 'Product Sense for Engineers', category: 'Strategy', addedDate: 'May 20' },
+];

@@ -1,8 +1,14 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import Profile from './Profile.jsx';
 
 const TopAppBar = () => {
+  const location = useLocation();
+  const isInterviewMode = ['/chat-interview', '/video-interview', '/voice-interview'].includes(location.pathname);
+
+  if (isInterviewMode) return null;
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between px-6 bg-black/40 backdrop-blur-xl border-b border-white/5">
       {/* Left: Logo */}
@@ -27,7 +33,7 @@ const TopAppBar = () => {
       </div>
 
       {/* Right side actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <motion.button 
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -35,9 +41,9 @@ const TopAppBar = () => {
         >
           <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}>notifications</span>
         </motion.button>
-        <div className="w-8 h-8 rounded-full bg-violet-500/20 border border-violet-400/30 flex items-center justify-center text-violet-400 text-xs font-bold overflow-hidden">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Prakhar" alt="User" className="w-full h-full object-cover" />
-        </div>
+        
+        {/* Profile Dropdown with Logout */}
+        <Profile />
       </div>
     </header>
   );

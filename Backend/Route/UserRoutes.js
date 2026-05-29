@@ -157,4 +157,11 @@ router.post("/google", userController.googleLogin);
 router.get("/me", requireAuth, userController.getMe);
 router.put("/me", requireAuth, userController.updateMe);
 
+router.post("/forgot-password", userController.forgotPassword);
+router.post("/reset-password", userController.resetPassword);
+router.post("/verify-email", userController.verifyEmail);
+
+const upload = require("../Middleware/upload");
+router.post("/upload-resume", requireAuth, upload.single("resume"), userController.uploadResume);
+
 module.exports = router;

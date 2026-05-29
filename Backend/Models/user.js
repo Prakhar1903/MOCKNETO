@@ -54,6 +54,24 @@ const UserSchema = new mongoose.Schema(
         default: true,
       },
     },
+
+    // --- New Features Data ---
+    streak: {
+      current: { type: Number, default: 0 },
+      longest: { type: Number, default: 0 },
+      lastActivityDate: { type: Date, default: null },
+    },
+    totalSessions: { type: Number, default: 0 },
+
+    resetPasswordToken: { type: String, default: null },
+    resetPasswordExpires: { type: Date, default: null },
+
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerifyToken: { type: String, default: null },
+
+    // For Resume Upload Feature
+    resumeText: { type: String, default: "" },
+    parsedSkills: { type: [String], default: [] },
   },
   {
     timestamps: true, // Adds createdAt and updatedAt fields

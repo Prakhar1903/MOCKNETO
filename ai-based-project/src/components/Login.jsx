@@ -279,13 +279,7 @@ const Login = () => {
               <p className="text-foreground/60 mt-2">Elevate your career today.</p>
             </div>
 
-            {/* Back Button */}
-            <button
-              onClick={handleBack}
-              className="absolute top-6 left-6 p-2 rounded-full hover:bg-foreground/5 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-            </button>
+
 
             {/* Form Toggle */}
             <div className="flex bg-secondary rounded-2xl p-1 mb-8">
@@ -357,7 +351,7 @@ const Login = () => {
                     <div className="flex justify-between items-center ml-1">
                       <label className="text-sm font-bold">Password</label>
                       {activeTab === 'login' && (
-                        <Link to="/contactus" className="text-xs font-bold text-primary hover:underline">Forgot?</Link>
+                        <Link to="/forgot-password" className="text-xs font-bold text-primary hover:underline">Forgot?</Link>
                       )}
                     </div>
                     <input

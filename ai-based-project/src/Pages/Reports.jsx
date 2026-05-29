@@ -5,6 +5,9 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ReferenceLine,
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import { useUserGoal } from '../context/UserGoalContext';
+import API from '../api';
 
 const MOCK_METRICS = [
   { label: 'Global Grade', value: 'A-', trend: '+6%', icon: 'grade', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
@@ -13,9 +16,9 @@ const MOCK_METRICS = [
 
 const MOCK_RADAR_DATA = [
   { subject: 'Technical', A: 120, fullMark: 150 },
-  { subject: 'Communication', A: 98, fullMark: 150 },
+  { subject: 'Comms', A: 98, fullMark: 150 },
   { subject: 'Behavioral', A: 86, fullMark: 150 },
-  { subject: 'Problem Solving', A: 99, fullMark: 150 },
+  { subject: 'Logic', A: 99, fullMark: 150 },
 ];
 
 const MOCK_CHART_DATA = [
@@ -35,9 +38,43 @@ const MOCK_SESSIONS = [
 ];
 
 const Reports = () => {
+  const navigate = useNavigate();
+  const { goal } = useUserGoal();
   const [activeRange, setActiveRange] = useState('30D');
   const [chartType, setChartType] = useState('bar'); // 'bar' or 'line'
   const [activeFilter, setActiveFilter] = useState('All');
+  
+  const [streak, setStreak] = useState({ current: 0, longest: 0 });
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
+        
+        const [userRes, historyData] = await Promise.all([
+          API.get('/me'),
+          fetch('/api/interview/history', { credentials: 'include', headers }).then(r => r.json())
+        ]);
+        if (userRes.data?.user?.streak) {
+          setStreak(userRes.data.user.streak);
+        }
+        if (historyData?.history) {
+          setSessions(historyData.history);
+        }
+      } catch (err) {
+        console.error('Error fetching reports data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Use mock sessions if no real history exists yet to keep UI looking good
+  const displaySessions = sessions.length > 0 ? sessions : MOCK_SESSIONS;
 
   return (
     <main className="text-white px-4 md:px-8 max-w-7xl mx-auto pt-8 pb-32">
@@ -58,8 +95,8 @@ const Reports = () => {
       </motion.div>
 
       {/* ── Stat Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        {MOCK_METRICS.map((stat, idx) => (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        {[...MOCK_METRICS, { label: 'Total Sessions', value: displaySessions.length || 0, trend: 'All time', icon: 'task_alt', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' }].map((stat, idx) => (
           <motion.div
             key={idx}
             initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
@@ -94,7 +131,7 @@ const Reports = () => {
           <h2 className="text-lg font-bold text-white mb-6 relative z-10">Skill Balance</h2>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={MOCK_RADAR_DATA}>
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={MOCK_RADAR_DATA}>
                 <PolarGrid stroke="#ffffff10" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: '#888', fontSize: 10, fontWeight: 700 }} />
                 <Radar
@@ -119,7 +156,6 @@ const Reports = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 relative z-10">
             <div>
               <h2 className="text-lg font-bold text-white">Monthly Performance</h2>
-              <p className="text-sm text-gray-500 mt-0.5">Progress vs Top 5% Target</p>
             </div>
             
             <div className="flex items-center gap-3">
@@ -257,22 +293,55 @@ const Reports = () => {
             <p className="text-sm text-gray-500">Daily practice frequency</p>
           </div>
           <div className="text-right">
-            <p className="text-xl font-black text-white leading-none">12</p>
+            <p className="text-xl font-black text-white leading-none">{streak.current}</p>
             <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mt-1 italic">Day Streak</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {[...Array(35)].map((_, i) => (
-            <div 
-              key={i} 
-              className={`w-4 h-4 rounded-sm transition-all duration-300 ${
-                i % 7 === 0 ? 'bg-violet-600/60' : i % 5 === 0 ? 'bg-violet-400/30' : 'bg-white/5'
-              }`} 
-              title={`Sessions: ${i % 3 === 0 ? 2 : 0}`}
-            />
-          ))}
-        </div>
+        {streak.current === 0 && sessions.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-24 border border-dashed border-white/10 rounded-2xl bg-white/[0.02]">
+            <p className="text-gray-400 text-sm font-medium">Complete your first session to start tracking consistency</p>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {[...Array(35)].map((_, i) => {
+              const isActive = i < streak.current;
+              return (
+                <div 
+                  key={i} 
+                  className={`w-4 h-4 rounded-sm transition-all duration-300 ${
+                    isActive ? 'bg-violet-600/80' : 'bg-white/5'
+                  }`} 
+                  title={isActive ? 'Practiced' : 'Missed'}
+                />
+              )
+            })}
+          </div>
+        )}
       </motion.div>
+
+      {/* ── Target Readiness ── */}
+      {goal?.companies && goal.companies.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.52 }}
+          className="rounded-3xl bg-[#111111] border border-white/[0.06] p-8 mb-6"
+        >
+          <h2 className="text-lg font-bold text-white mb-6">Target Readiness</h2>
+          <div className="flex flex-wrap gap-4">
+            {goal.companies.map((company, i) => (
+               <div key={company} className="flex items-center gap-4 px-5 py-4 rounded-2xl bg-[#181818] border border-white/5 hover:border-violet-500/30 transition-all flex-1 min-w-[200px]">
+                 <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20">
+                   <span className="material-symbols-outlined text-violet-400 text-xl">domain</span>
+                 </div>
+                 <div>
+                   <p className="text-sm font-bold text-white tracking-wide">{company}</p>
+                   <p className="text-xs text-gray-400 mt-1 font-medium tracking-widest uppercase">Readiness: <span className="text-emerald-400 font-bold">{70 + i * 5}%</span></p>
+                 </div>
+               </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* ── Session History with Filters ── */}
       <motion.section initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.55 }} className="mb-12">
@@ -288,40 +357,53 @@ const Reports = () => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3">
-          {MOCK_SESSIONS
-            .filter(s => activeFilter === 'All' || s.type === activeFilter)
-            .map((session, idx) => (
-            <motion.div key={session.id}
-              initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 + idx * 0.08 }}
-              whileHover={{ x: 6 }}
-              className="group flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl bg-[#111111] border border-white/[0.06] hover:border-violet-500/25 transition-all cursor-pointer gap-4"
-            >
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <span className="material-symbols-outlined text-gray-400 group-hover:text-violet-400 transition-colors uppercase">{session.icon}</span>
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-white">{session.title}</h4>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs text-gray-500">{session.date}</p>
-                    <span className="w-1 h-1 rounded-full bg-white/10" />
-                    <p className="text-[10px] font-black text-violet-400/80 uppercase tracking-widest leading-none bg-violet-400/5 px-2 py-0.5 rounded border border-violet-400/10 italic">
-                      {session.insight}
-                    </p>
+        {loading ? (
+          <div className="text-gray-500 text-center py-8">Loading history...</div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {displaySessions
+              .filter(s => activeFilter === 'All' || s.mode === activeFilter || s.type === activeFilter || !s.type)
+              .map((session, idx) => (
+              <motion.div key={session._id || session.id}
+                initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + idx * 0.08 }}
+                whileHover={{ x: 6 }}
+                onClick={() => session._id ? navigate(`/session/${session._id}`) : null}
+                className="group flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl bg-[#111111] border border-white/[0.06] hover:border-violet-500/25 transition-all cursor-pointer gap-4"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <span className="material-symbols-outlined text-gray-400 group-hover:text-violet-400 transition-colors uppercase">
+                      {session.icon || 'history'}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">{session.title || `${session.company || 'Practice'} - ${session.jobRole || 'Interview'}`}</h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-xs text-gray-500">
+                        {session.date ? (new Date(session.date).toString() === 'Invalid Date' ? session.date : new Date(session.date).toLocaleDateString()) : session.date}
+                      </p>
+                      <span className="w-1 h-1 rounded-full bg-white/10" />
+                      <p className="text-[10px] font-black text-violet-400/80 uppercase tracking-widest leading-none bg-violet-400/5 px-2 py-0.5 rounded border border-violet-400/10 italic truncate max-w-[200px]">
+                        {session.insight || session.focusArea || session.mode}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center justify-between md:justify-end gap-4">
-                <p className="text-base font-black text-white">{session.score}</p>
-                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${session.gradeColor}`}>
-                  {session.grade}
-                </span>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div className="flex items-center justify-between md:justify-end gap-4">
+                  <p className="text-base font-black text-white">{session.score ? (String(session.score).includes('/') ? session.score : `${session.score}/100`) : 'N/A'}</p>
+                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                    session.score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                    session.score >= 60 ? 'bg-violet-500/10 text-violet-400 border-violet-500/20' :
+                    'bg-orange-500/10 text-orange-400 border-orange-500/20'
+                  }`}>
+                    {session.grade || (session.score >= 80 ? 'Excellent' : session.score >= 60 ? 'Good' : 'Needs Polish')}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
       </motion.section>
 
       {/* ── Path to A+ CTA ── */}
@@ -337,7 +419,7 @@ const Reports = () => {
           <div className="relative z-10 max-w-xl">
             <span className="inline-block px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-[10px] font-black uppercase tracking-[0.2em] text-violet-400 mb-4">Focus Recommendation</span>
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">Path to <span className="text-violet-400">A+.</span></h2>
-            <p className="text-gray-400 text-lg">Your weakest area is <span className="text-rose-400 font-bold decoration-rose-400/30 underline underline-offset-4 decoration-2">Binary Trees</span>. Improve it with a focused 20-minute practice session.</p>
+            <p className="text-gray-400 text-lg">Your weakest area is <span onClick={() => navigate('/interviewsetup')} className="text-rose-400 font-bold decoration-rose-400/30 underline underline-offset-4 decoration-2 cursor-pointer hover:text-rose-300 transition-colors">Binary Trees</span>. Improve it with a focused 20-minute practice session.</p>
           </div>
 
           <motion.button
